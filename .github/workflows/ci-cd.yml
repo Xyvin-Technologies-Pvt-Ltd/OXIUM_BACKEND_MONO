@@ -1,4 +1,4 @@
-name: Deploy mono-repo without OCPP LIGHTSAIL
+name: Deploy OXIUM_BACKEND_MONO TO LIGHTSAIL
 
 on:
   push:
@@ -59,8 +59,6 @@ jobs:
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
           CONTAINER_NAME: OXIUM_BACKEND
 
-
-
         uses: appleboy/ssh-action@master
         with:
           host: ${{ env.LIGHTSAIL_INSTANCE_IP }}
@@ -91,6 +89,15 @@ jobs:
               echo "✅ AWS CLI is already installed"
             fi
 
+            # ✅ Configure AWS credentials (forces IAM user usage)
+            echo "🔹 Configuring AWS CLI credentials..."
+            mkdir -p ~/.aws
+            echo "[default]" > ~/.aws/credentials
+            echo "aws_access_key_id = ${{ env.AWS_ACCESS_KEY_ID }}" >> ~/.aws/credentials
+            echo "aws_secret_access_key = ${{ env.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+            echo "region = ${{ env.AWS_REGION }}" >> ~/.aws/credentials
+            chmod 600 ~/.aws/credentials
+
             # ECR login
             echo "🔹 Logging into Amazon ECR..."
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | sudo docker login --username AWS --password-stdin ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
@@ -108,9 +115,7 @@ jobs:
             echo "🔹 Running new container..."
             sudo docker run -d \
               -p ${{ env.PORT }}:${{ env.PORT }} \
-              -e AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-              -e AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-              -e AWS_REGION=${{ secrets.AWS_REGION }} \
+              --restart always \
               --name ${{ env.CONTAINER_NAME }} \
               ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
