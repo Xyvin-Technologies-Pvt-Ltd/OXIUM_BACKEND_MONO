@@ -1,9 +1,10 @@
-name: Deploy mono-repo without OCPP in EC2
+name: Deploy mono-repo without OCPP LIGHTSAIL
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -55,8 +56,8 @@ jobs:
             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
             ECR_REPOSITORY: mono-repo-without-ocpp
             IMAGE_TAG: latest
-            EC2_INSTANCE_IP: ${{ secrets.MONO_REPO_WITHOUT_OCPP}}
-            SSH_KEY: ${{ secrets.EC2_PRIVATE_KEY }}
+            LIGHTSAIL_INSTANCE_IP: ${{ secrets.MONO_REPO_WITHOUT_OCPP}}
+            SSH_KEY: ${{ secrets.LIGHTSAIL_PRIVATE_KEY }}
             USERNAME: ec2-user
             PORT: 5050
             AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
@@ -64,7 +65,7 @@ jobs:
 
         uses: appleboy/ssh-action@master
         with:
-            host: ${{ env.EC2_INSTANCE_IP }}
+            host: ${{ env.LIGHTSAIL_INSTANCE_IP }}
             username: ${{ env.USERNAME }}
             key: ${{ env.SSH_KEY }}
               
