@@ -57,7 +57,9 @@ jobs:
           USERNAME: ubuntu
           PORT: 5050
           AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-          CONTAINER_NAME: NON-OCPP
+          CONTAINER_NAME: OXIUM_BACKEND
+
+
 
         uses: appleboy/ssh-action@master
         with:
