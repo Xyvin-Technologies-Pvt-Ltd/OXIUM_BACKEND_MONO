@@ -20,6 +20,7 @@ const configRoute = require("./routes/configuration/configurationRoutes.js");
 const logRoute = require("./routes/logs/logRoutes.js");
 const adminRoute = require("./routes/user/adminRoutes.js");
 const userRoute = require("./routes/user/userRoutes.js");
+// const { runAllSeeds } = require("./seeds/index.js");
 const app = express();
 
 app.use(
@@ -48,6 +49,7 @@ const BASE_PATH = `/api/${API_VERSION}`;
 app.get(BASE_PATH, (req, res) =>
   res.status(200).send(" All endpoints are 🔐. Do you have the 🔑")
 );
+// runAllSeeds();
 
 app.use(`${BASE_PATH}/admin`, adminRoute);
 app.use(`${BASE_PATH}`, userRoute);

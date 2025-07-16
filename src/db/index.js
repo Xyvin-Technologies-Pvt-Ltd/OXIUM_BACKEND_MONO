@@ -3,7 +3,7 @@ const mongoose = require('mongoose')
 
 const connectDB = async () => {
   try {
-    const mongoUrl = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017'
+    const mongoUrl = process.env.MONGO_URI || 'mongodb+srv://tijotjoseph:qmfI5GHcRb5UvgrH@xpenseadb.ad52dla.mongodb.net'
     const dbName = process.env.DB_NAME || 'OXIUM_DB'
 
     const connectionInstance = await mongoose.connect(`${mongoUrl}/${dbName}`)

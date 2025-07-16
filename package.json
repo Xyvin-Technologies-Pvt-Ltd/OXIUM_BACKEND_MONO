@@ -5,7 +5,10 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon handler.js"
+    "start": "nodemon handler.js",
+    "seed": "node src/seeds/index.js",
+    "seed:admin": "node src/seeds/adminSeed.js",
+    "verify:admin": "node src/seeds/verifyAdmin.js"
   },
   "author": "",
   "license": "ISC",
