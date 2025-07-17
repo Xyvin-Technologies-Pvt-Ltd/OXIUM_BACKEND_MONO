@@ -14,7 +14,7 @@ const connectDB = async () => {
 
     // Event monitoring
     mongoose.connection.on('connected', () => {
-      console.log('Mongoose connected to db')
+      console.log('Mongoose connected to '+ mongoUrl+ '/' + dbName)
     })
 
     mongoose.connection.on('error', (err) => {
