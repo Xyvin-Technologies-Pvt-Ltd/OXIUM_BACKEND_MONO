@@ -6,7 +6,7 @@ const connectDB = async () => {
     const mongoUrl = process.env.MONGO_URI || 'mongodb+srv://tijotjoseph:4CHkgnaHODjH0RIR@loyaltycarddb.3o6xb60.mongodb.net'
     const dbName = process.env.DB_NAME || 'OXIUM_DB'
 
-    const connectionInstance = await mongoose.connect(`${mongoUrl}/${dbName}`)
+    const connectionInstance = await mongoose.connect(`mongodb+srv://tijotjoseph:4CHkgnaHODjH0RIR@loyaltycarddb.3o6xb60.mongodb.net/OXIUM_DB`)
 
     console.log(
       `\n MongoDB connected !! DB HOST : ${connectionInstance.connection.host}/${dbName}`
