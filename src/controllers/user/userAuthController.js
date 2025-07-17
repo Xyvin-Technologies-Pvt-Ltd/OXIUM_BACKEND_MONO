@@ -155,6 +155,7 @@ exports.userAuthenticate = async (req, res) => {
 };
 
 exports.userAuthenticateById = async (req, res) => {
+  //! am just adding the value in the db for now: name and value are adding
   req.params.name = "minimum-transaction-wallet-requirement";
   const minimumWalletRequirement = await getConfigByName(req, res, true);
   if (!req.params.userId)

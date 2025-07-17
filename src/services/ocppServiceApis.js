@@ -2,7 +2,7 @@ require("dotenv").config();
 const axios = require("axios");
 const generateToken = require("../utils/generateToken");
 
-const staticGlobalUrl = "http://localhost:6500";
+const staticGlobalUrl = "http://13.203.2.34:6500";
 
 
 
