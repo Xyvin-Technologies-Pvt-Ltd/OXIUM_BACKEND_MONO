@@ -264,7 +264,7 @@ exports.updateStatusConnector = async (req, res) => {
 exports.updateStatusCPID = async (req, res) => {
   const evMachineCPID = req.params.evMachineCPID;
   const status = req.body.status;
-
+  console.log(`Update status for CPID: ${evMachineCPID}, Status: ${status}`);
   let evMachine = await EvMachine.findOne({ CPID: evMachineCPID });
   if (!evMachine)
     throw new createError(400, `EvMachine ${evMachineCPID} not Found`);
