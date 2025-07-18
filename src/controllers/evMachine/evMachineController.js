@@ -228,11 +228,13 @@ exports.updateStatusConnector = async (req, res) => {
     { CPID: evMachineCPID },
     "connectors"
   );
+  console.log("🚀 ~ exports.updateStatusConnector= ~ evMachine:", evMachine)
   if (!evMachine)
     throw new createError(400, `EvMachine ${evMachineCPID} not Found`);
 
   if (evMachine) {
     let connectors = evMachine.connectors;
+    console.log("🚀 ~ exports.updateStatusConnector= ~ connectors:", connectors)
     let connectorFound = connectors.find((x) => x.connectorId == connector);
     if (!connectorFound) {
       return res.status(400).json({ error: "Connector 0" });
