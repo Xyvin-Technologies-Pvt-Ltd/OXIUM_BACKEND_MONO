@@ -12,7 +12,7 @@ exports.getSoC = async (cpid, connectorId) => {
     let ocppServiceUrl = process.env.OCPP_SERVICE_URL;
     if (!ocppServiceUrl) ocppServiceUrl = staticGlobalUrl;
     const response = await axios.get(
-      `${ocppServiceUrl}/api/v1/ocpp/getOcpp/${cpid}/${connectorId}`,
+      `${staticGlobalUrl}/api/v1/ocpp/getOcpp/${cpid}/${connectorId}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
