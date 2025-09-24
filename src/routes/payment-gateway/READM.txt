@@ -1,0 +1,40 @@
+############################################################################
+                                    CONNECT IPS
+############################################################################
+
+
+Document Url:
+URL:https://doc.connectips.com/
+user / Pass : <Credentials will be shared separately>
+
+1. Connectips Gateway
+Gateway URL: https://uat.connectips.com/connectipswebgw/loginpage
+Merchant ID: 4033
+App ID :MER-4033-APP-1
+App Name:Go EC Nepal
+
+Validation URL: https://uat.connectips.com/connectipswebws/api/creditor/validatetxn
+
+
+
+Document:
+username: NCHL_GW
+password : Nep@L!890
+
+
+App ID :MER-4033-APP-1
+Password (Basic Auth):  Abcd@123
+Password for CREDITOR.pfx : 123
+
+ https://drive.google.com/file/d/1KCunSLxBbpxxpl0ve86MK1Pn3oK2JZKR/view?usp=sharing
+This the API file for Payment Gateway
+
+
+
+
+############################################################################
+                                    HBL PAYMENT Gateway
+############################################################################
+
+
+https://devzone.2c2p.com/docs/integration-1#api-endpoints 
