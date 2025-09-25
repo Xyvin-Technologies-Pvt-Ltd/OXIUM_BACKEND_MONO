@@ -1,1 +1,3 @@
-let a=1
+const connectIpsController = require("../connectIpsController");
+
+module.exports = connectIpsController;
