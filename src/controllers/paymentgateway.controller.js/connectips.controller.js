@@ -7,8 +7,8 @@ exports.initiatePayment = async (req, res) => {
 
     // Generate TXNID if not provided
     txnData.TXNID = txnData.TXNID || `TXN${Date.now()}`;
-    // txnData.TOKEN = generateToken(txnData);
-    txnData.TOKEN = "Txt Token "; // dummy data
+    txnData.TOKEN = generateToken(txnData);
+    // txnData.TOKEN = "Txt Token "; // dummy data
 
     // Save transaction
     await Transaction.create({
