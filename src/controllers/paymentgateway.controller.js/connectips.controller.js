@@ -1,44 +1,48 @@
 const Transaction = require("../../models/Transaction");
 const { generateToken } = require("../../utils/connectips.utils");
+const axios = require("axios");
 
 exports.initiatePayment = async (req, res) => {
   try {
-    const txnData = req.body;
+    const { TXNAMT, REFERENCEID, REMARKS, PARTICULARS } = req.body;
 
-    // Generate TXNID if not provided
-    txnData.TXNID = txnData.TXNID || `TXN${Date.now()}`;
+    // Build transaction data
+    const txnId = `TXN${Date.now()}`;
+    const txnDate = new Date().toISOString().split("T")[0];
+
+    const txnData = {
+      MERCHANTID: process.env.CONNECTIPS_MERCHANT_ID,
+      APPID: process.env.CONNECTIPS_APP_ID,
+      APPNAME: process.env.CONNECTIPS_APP_NAME,
+      TXNID: txnId,
+      TXNDATE: txnDate,
+      TXNCRNCY: "NPR",
+      TXNAMT,
+      REFERENCEID,
+      REMARKS,
+      PARTICULARS,
+    };
+
+    // Generate token
     txnData.TOKEN = generateToken(txnData);
-    // txnData.TOKEN = "Txt Token "; // dummy data
 
     // Save transaction
     await Transaction.create({
-      txnId: txnData.TXNID,
+      txnId,
       merchantId: txnData.MERCHANTID,
       appId: txnData.APPID,
-      amount: txnData.TXNAMT,
-      referenceId: txnData.REFERENCEID,
+      amount: TXNAMT,
+      referenceId: REFERENCEID,
       status: "INITIATED",
     });
 
-    // Respond for mobile WebView
+    // Respond back to frontend
     res.status(200).json({
-      connectIPSUrl: "https://uat.connectips.com/connectipswebgw/loginpage",
+      connectIPSUrl: process.env.CONNECTIPS_GATEWAY_URL,
       method: "POST",
-      fields: {
-        MERCHANTID: txnData.MERCHANTID,
-        APPID: txnData.APPID,
-        APPNAME: txnData.APPNAME,
-        TXNID: txnData.TXNID,
-        TXNDATE: txnData.TXNDATE,
-        TXNCRNCY: txnData.TXNCRNCY,
-        TXNAMT: txnData.TXNAMT,
-        REFERENCEID: txnData.REFERENCEID,
-        REMARKS: txnData.REMARKS,
-        PARTICULARS: txnData.PARTICULARS,
-        TOKEN: txnData.TOKEN,
-      },
-      successURL: "https://yourapp.com/payment/connectips/success",
-      failureURL: "https://yourapp.com/payment/connectips/failure",
+      fields: txnData,
+      successURL: process.env.SUCCESS_URL,
+      failureURL: process.env.FAILURE_URL,
     });
   } catch (err) {
     console.error(err);
@@ -48,18 +52,56 @@ exports.initiatePayment = async (req, res) => {
 
 exports.paymentCallback = async (req, res) => {
   try {
-    const { TXNID, status } = req.body; // ConnectIPS sends TXNID parameter
+    const { TXNID } = req.body;
 
     const transaction = await Transaction.findOne({ txnId: TXNID });
     if (!transaction) return res.status(404).send("Transaction not found");
 
-    transaction.status = status === "SUCCESS" ? "SUCCESS" : "FAILED";
+    const token = generateToken({
+      MERCHANTID: transaction.merchantId,
+      APPID: transaction.appId,
+      REFERENCEID: transaction.referenceId, 
+      TXNAMT: transaction.amount,
+    });
+
+    // Correct payload (uppercase keys)
+    const validationData = {
+      MERCHANTID: transaction.merchantId,
+      APPID: transaction.appId,
+      REFERENCEID: transaction.referenceId,
+      TXNAMT: transaction.amount,
+      TOKEN: token
+    };
+   
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization":
+        "Basic " + Buffer.from(`${process.env.CONNECTIPS_APP_ID}:${process.env.CONNECTIPS_BASIC_AUTH_PASSWORD}`).toString("base64"),
+    };
+
+    const validationRes = await axios.post(
+      process.env.CONNECTIPS_VALIDATION_URL,
+      validationData,
+      { headers }
+    );
+
+    transaction.status =
+      validationRes.data.status === "SUCCESS" ? "SUCCESS" : "FAILED";
     await transaction.save();
 
-    // Respond to ConnectIPS or mobile
-    res.status(200).json({ message: "Transaction updated", txnId: TXNID, status: transaction.status });
+    res.status(200).json({
+      message: "Transaction validated",
+      txnId: transaction.txnId,
+      status: transaction.status,
+      validationResponse: validationRes.data,
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Callback failed" });
+    console.error("Validation Error:", err.response?.data || err.message);
+    res.status(500).json({
+      error: "Callback/Validation failed",
+      details: err.response?.data || err.message,
+    });
   }
 };
+
+
