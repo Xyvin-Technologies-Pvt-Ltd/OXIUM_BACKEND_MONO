@@ -4,10 +4,10 @@ const axios = require("axios");
 
 exports.initiatePayment = async (req, res) => {
   try {
-    const { TXNAMT, REFERENCEID, REMARKS, PARTICULARS } = req.body;
+    const { TXNAMT, REMARKS, PARTICULARS } = req.body;
 
-    // Build transaction data
     const txnId = `TXN${Date.now()}`;
+    const referenceId = `REF${Date.now()}`;
     const txnDate = new Date().toISOString().split("T")[0];
 
     const txnData = {
@@ -18,7 +18,7 @@ exports.initiatePayment = async (req, res) => {
       TXNDATE: txnDate,
       TXNCRNCY: "NPR",
       TXNAMT,
-      REFERENCEID,
+      REFERENCEID : referenceId,
       REMARKS,
       PARTICULARS,
     };
@@ -26,17 +26,15 @@ exports.initiatePayment = async (req, res) => {
     // Generate token
     txnData.TOKEN = generateToken(txnData);
 
-    // Save transaction
     await Transaction.create({
       txnId,
       merchantId: txnData.MERCHANTID,
       appId: txnData.APPID,
       amount: TXNAMT,
-      referenceId: REFERENCEID,
+      referenceId,
       status: "INITIATED",
     });
 
-    // Respond back to frontend
     res.status(200).json({
       connectIPSUrl: process.env.CONNECTIPS_GATEWAY_URL,
       method: "POST",
@@ -50,58 +48,85 @@ exports.initiatePayment = async (req, res) => {
   }
 };
 
-exports.paymentCallback = async (req, res) => {
+
+exports.paymentSuccess = async (req, res) => {
   try {
-    const { TXNID } = req.body;
+    const TXNID = req.query.TXNID; // ConnectIPS sends transaction ID in query param
+    if (!TXNID) {
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+    }
 
-    const transaction = await Transaction.findOne({ txnId: TXNID });
-    if (!transaction) return res.status(404).send("Transaction not found");
+    const validationResult = await validateTransaction(TXNID);
 
-    const token = generateToken({
-      MERCHANTID: transaction.merchantId,
-      APPID: transaction.appId,
-      REFERENCEID: transaction.referenceId, 
-      TXNAMT: transaction.amount,
-    });
-
-    // Correct payload (uppercase keys)
-    const validationData = {
-      MERCHANTID: transaction.merchantId,
-      APPID: transaction.appId,
-      REFERENCEID: transaction.referenceId,
-      TXNAMT: transaction.amount,
-      TOKEN: token
-    };
-   
-    const headers = {
-      "Content-Type": "application/json",
-      "Authorization":
-        "Basic " + Buffer.from(`${process.env.CONNECTIPS_APP_ID}:${process.env.CONNECTIPS_BASIC_AUTH_PASSWORD}`).toString("base64"),
-    };
-
-    const validationRes = await axios.post(
-      process.env.CONNECTIPS_VALIDATION_URL,
-      validationData,
-      { headers }
-    );
-
-    transaction.status =
-      validationRes.data.status === "SUCCESS" ? "SUCCESS" : "FAILED";
-    await transaction.save();
-
-    res.status(200).json({
-      message: "Transaction validated",
-      txnId: transaction.txnId,
-      status: transaction.status,
-      validationResponse: validationRes.data,
-    });
+    if (validationResult.status === "SUCCESS") {
+      // Add wallet top-up / order confirmation logic
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-success?txnId=${TXNID}`);
+    } else {
+      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?txnId=${TXNID}`);
+    }
   } catch (err) {
-    console.error("Validation Error:", err.response?.data || err.message);
-    res.status(500).json({
-      error: "Callback/Validation failed",
-      details: err.response?.data || err.message,
-    });
+    console.error("Payment Success Handler Error:", err.message);
+    res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
   }
 };
 
+exports.paymentFailure = async (req, res) => {
+  console.log("paymentFailure called");
+  
+  try {
+    const TXNID = req.query.TXNID;
+
+    if (TXNID) {
+      await validateTransaction(TXNID); 
+    }
+
+    res.redirect(`${process.env.FRONTEND_URL}/payment-failed?txnId=${TXNID || ""}`);
+  } catch (err) {
+    console.error("Payment Failure Handler Error:", err.message);
+    res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+  }
+};
+
+
+const validateTransaction = async (TXNID) => {
+  const transaction = await Transaction.findOne({ txnId: TXNID });
+  if (!transaction) throw new Error("Transaction not found");
+
+  const token = generateToken({
+    MERCHANTID: transaction.merchantId,
+    APPID: transaction.appId,
+    REFERENCEID: transaction.referenceId,
+    TXNAMT: transaction.amount,
+  });
+
+  const validationData = {
+    MERCHANTID: transaction.merchantId,
+    APPID: transaction.appId,
+    REFERENCEID: transaction.referenceId,
+    TXNAMT: transaction.amount,
+    TOKEN: token,
+  };
+
+  const headers = {
+    "Content-Type": "application/json",
+    "Authorization":
+      "Basic " +
+      Buffer.from(
+        `${process.env.CONNECTIPS_APP_ID}:${process.env.CONNECTIPS_BASIC_AUTH_PASSWORD}`
+      ).toString("base64"),
+  };
+
+  const validationRes = await axios.post(
+    process.env.CONNECTIPS_VALIDATION_URL,
+    validationData,
+    { headers }
+  );
+
+  // Update transaction in DB
+  transaction.status =
+    validationRes.data.status === "SUCCESS" ? "SUCCESS" : "FAILED";
+  await transaction.save();
+
+  return validationRes.data;
+};
 
