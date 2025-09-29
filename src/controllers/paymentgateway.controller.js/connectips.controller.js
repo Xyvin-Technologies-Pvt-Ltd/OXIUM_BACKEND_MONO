@@ -1,5 +1,5 @@
 const Transaction = require("../../models/Transaction");
-const { generateToken } = require("../../utils/connectips.utils");
+const { generatePaymentToken, generateValidationToken } = require("../../utils/connectips.utils");
 const axios = require("axios");
 
 exports.initiatePayment = async (req, res) => {
@@ -8,7 +8,12 @@ exports.initiatePayment = async (req, res) => {
 
     const txnId = `TXN${Date.now()}`;
     const referenceId = `REF${Date.now()}`;
-    const txnDate = new Date().toISOString().split("T")[0];
+    // Date format DD-MM-YYYY
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const txnDate = `${day}-${month}-${year}`; // "26-09-2024"
 
     const txnData = {
       MERCHANTID: process.env.CONNECTIPS_MERCHANT_ID,
@@ -18,13 +23,13 @@ exports.initiatePayment = async (req, res) => {
       TXNDATE: txnDate,
       TXNCRNCY: "NPR",
       TXNAMT,
-      REFERENCEID : referenceId,
+      REFERENCEID: referenceId,
       REMARKS,
       PARTICULARS,
     };
 
     // Generate token
-    txnData.TOKEN = generateToken(txnData);
+    txnData.TOKEN = generatePaymentToken(txnData);
 
     await Transaction.create({
       txnId,
@@ -71,13 +76,10 @@ exports.paymentSuccess = async (req, res) => {
 };
 
 exports.paymentFailure = async (req, res) => {
-  console.log("paymentFailure called");
-  
   try {
     const TXNID = req.query.TXNID;
-
     if (TXNID) {
-      await validateTransaction(TXNID); 
+      await validateTransaction(TXNID);
     }
 
     res.redirect(`${process.env.FRONTEND_URL}/payment-failed?txnId=${TXNID || ""}`);
@@ -92,28 +94,28 @@ const validateTransaction = async (TXNID) => {
   const transaction = await Transaction.findOne({ txnId: TXNID });
   if (!transaction) throw new Error("Transaction not found");
 
-  const token = generateToken({
-    MERCHANTID: transaction.merchantId,
-    APPID: transaction.appId,
-    REFERENCEID: transaction.referenceId,
-    TXNAMT: transaction.amount,
-  });
+  const token = generateValidationToken(
+    transaction.merchantId,
+    transaction.appId,
+    transaction.txnId,
+    transaction.amount
+  );
+
+  console.log("token:", token);
+  
 
   const validationData = {
-    MERCHANTID: transaction.merchantId,
-    APPID: transaction.appId,
-    REFERENCEID: transaction.referenceId,
-    TXNAMT: transaction.amount,
-    TOKEN: token,
+    merchantId: transaction.merchantId,
+    appId: transaction.appId,
+    referenceId: transaction.txnId,
+    txnAmt: transaction.amount,
+    token: token,
   };
 
   const headers = {
     "Content-Type": "application/json",
     "Authorization":
-      "Basic " +
-      Buffer.from(
-        `${process.env.CONNECTIPS_APP_ID}:${process.env.CONNECTIPS_BASIC_AUTH_PASSWORD}`
-      ).toString("base64"),
+      "Basic " + Buffer.from(`${process.env.CONNECTIPS_APP_ID}:${process.env.CONNECTIPS_BASIC_AUTH_PASSWORD}`).toString("base64"),
   };
 
   const validationRes = await axios.post(
@@ -121,6 +123,7 @@ const validateTransaction = async (TXNID) => {
     validationData,
     { headers }
   );
+  console.log("validationRes:", validationRes.data);
 
   // Update transaction in DB
   transaction.status =
