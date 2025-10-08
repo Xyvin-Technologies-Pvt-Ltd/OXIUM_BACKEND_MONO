@@ -1,21 +1,17 @@
-// jose.utils.js
 const path = require('path');
 const fs = require('fs');
 
 let jose;
 let keys;
 
-// Lazy-load jose (ESM-only package)
 const initJose = async () => {
   if (!jose) jose = await import('jose');
   return jose;
 };
 
-// Load RSA keys from files
 const loadKeys = async () => {
   try {
     const { importPKCS8, importSPKI } = await initJose();
-
     const keysPath = path.join(__dirname, '../keys');
     const readKey = (file) => fs.readFileSync(path.join(keysPath, file), 'utf8');
 
@@ -34,38 +30,27 @@ const loadKeys = async () => {
     };
   } catch (error) {
     console.error('Error loading RSA keys:', error);
-    throw new Error(`Key loading failed: ${error.message}`);
+    throw error;
   }
 };
 
-// Initialize keys once
 const initializeKeys = async () => {
   if (!keys) keys = await loadKeys();
   return keys;
 };
 
-// HBL configuration
 const getHblConfig = () => {
-  const isProd = process.env.NODE_ENV === 'production';
   return {
-    baseUrl: isProd ? process.env.HBL_PROD_BASE_URL : process.env.HBL_UAT_BASE_URL,
-    keyId: isProd ? process.env.HBL_PROD_KEY_ID : process.env.HBL_UAT_KEY_ID,
-    apiKey: process.env.HBL_API_KEY,
-    merchantId: process.env.HBL_MERCHANT_ID,
+    baseUrl: 'https://core.demo-paco.2c2p.com', 
+    keyId: '7664a2ed0dee4879bdfca0e8ce1ac313',
+    apiKey: '65805a1636c74b8e8ac81a991da80be4',
+    merchantId: '9104137120',
     successUrl: process.env.HBL_SUCCESS_URL,
     failUrl: process.env.HBL_FAILURE_URL
   };
 };
 
-// GUID generator
-const generateGuid = () =>
-  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-
-// Create JOSE payload (JWS + JWE)
+// FIXED: Remove the extra {request: } wrapper
 const createJosePayload = async (payload) => {
   try {
     const keys = await initializeKeys();
@@ -73,10 +58,11 @@ const createJosePayload = async (payload) => {
     const config = getHblConfig();
     const now = Math.floor(Date.now() / 1000);
 
+    // CORRECT: payload goes directly under apiRequest
     const jwsPayload = {
-      ...payload,
+      apiRequest: payload, 
       iss: config.apiKey,
-      aud: 'PacoAudience',
+      aud: 'PacoIssuer', 
       CompanyApiKey: config.apiKey,
       iat: now,
       nbf: now,
@@ -91,12 +77,11 @@ const createJosePayload = async (payload) => {
       .setProtectedHeader({ alg: 'RSA-OAEP', enc: 'A128CBC-HS256', kid: config.keyId })
       .encrypt(keys.pacoEncryptionPublicKey);
   } catch (error) {
-    console.error('JOSE payload creation failed:', error);
-    throw new Error(`JOSE encryption failed: ${error.message}`);
+    console.error('JOSE encryption failed:', error);
+    throw error;
   }
 };
 
-// Decrypt and verify JOSE response
 const decryptJoseResponse = async (encryptedResponse) => {
   try {
     const keys = await initializeKeys();
@@ -107,19 +92,18 @@ const decryptJoseResponse = async (encryptedResponse) => {
 
     const { payload } = await jwtVerify(jws, keys.pacoSigningPublicKey, {
       algorithms: ['PS256'],
-      audience: 'PacoAudience'
+      audience: 'PacoIssuer' 
     });
 
     return payload;
   } catch (error) {
-    console.error('JOSE response decryption failed:', error);
-    throw new Error(`JOSE decryption failed: ${error.message}`);
+    console.error('JOSE decryption failed:', error);
+    throw error;
   }
 };
 
 module.exports = {
   createJosePayload,
   decryptJoseResponse,
-  getHblConfig,
-  generateGuid
+  getHblConfig
 };

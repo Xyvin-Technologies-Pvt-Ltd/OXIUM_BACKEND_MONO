@@ -2,7 +2,6 @@ const HBLTransaction = require('../../models/HBLTransaction');
 const axios = require('axios');
 const { createJosePayload, decryptJoseResponse, getHblConfig } = require('../../utils/hblJose.utils');
 
-
 exports.generateHblPaymentPage = async (req, res) => {
   try {
     const { amount, invoiceNo, description, customerEmail, customerPhone, currencyCode, appId } = req.body;
@@ -29,24 +28,28 @@ exports.generateHblPaymentPage = async (req, res) => {
       createdAt: new Date()
     });
 
-    // — Inline HBL API Request Logic —
+    // FIXED: Correct field names matching PHP demo
     const hblRequest = {
-      merchantId: config.merchantId,
-      invoiceNo,
+      merchantID: config.merchantId, 
+      invoiceNo: invoiceNo,
       description: description || `Payment for ${invoiceNo}`,
       amount: parseFloat(amount).toFixed(2),
       currencyCode: (currencyCode || 'NPR').trim(),
       paymentChannel: ['CC', 'DC', 'IB'],
-      customerEmail,
-      customerMobileNo: customerPhone,
+      customerEmail: customerEmail,
+      customerMobileno: customerPhone, 
       userDefined1: appId,
+      userDefined2: '',
+      userDefined3: '',
+      userDefined4: '',
+      userDefined5: '',
       frontendReturnUrl: `${config.successUrl}?txnId=${invoiceNo}`,
       frontendCancelUrl: `${config.failUrl}?txnId=${invoiceNo}`,
-      backendReturnUrl: `${process.env.BASE_URL}/api/v1/payment/hbl/webhook`
+      backendReturnUrl: `${process.env.BASE_URL}/api/v1/payment/hbl/webhook`,
+      enable3DS: 'N'
     };
 
-
-    const encryptedPayload = await createJosePayload({ request: hblRequest });
+    const encryptedPayload = await createJosePayload(hblRequest);
 
     const headers = {
       'Content-Type': 'application/jose; charset=utf-8',
@@ -64,24 +67,29 @@ exports.generateHblPaymentPage = async (req, res) => {
 
       result = await decryptJoseResponse(response.data);
     } catch (error) {
-      console.error('HBL API request failed:', error.message);
+      console.error('HBL API failed:', error.message);
       if (error.response?.data) {
         try {
           const errorData = await decryptJoseResponse(error.response.data);
-          console.error('Decrypted error:', errorData);
-        } catch {
-          console.error('Could not decrypt error response');
+          console.error('HBL Error:', errorData);
+          return res.status(400).json({
+            success: false,
+            message: errorData.response?.apiResponse?.responseDescription || 'HBL API error'
+          });
+        } catch (e) {
+          console.error('Could not decrypt error');
         }
       }
       throw error;
     }
 
-    if (result?.webRequestUrl) {
+    // FIXED: Check correct response structure
+    if (result?.response?.Data?.paymentPage?.paymentPageURL) {
       await HBLTransaction.findOneAndUpdate(
         { txnId: invoiceNo },
         {
           status: 'PROCESSING',
-          gatewayReference: result.invoiceNo,
+          gatewayReference: result.response.Data.invoiceNo,
           updatedAt: new Date()
         }
       );
@@ -90,21 +98,21 @@ exports.generateHblPaymentPage = async (req, res) => {
         success: true,
         message: 'Payment page generated successfully',
         data: result,
-        paymentUrl: result.webRequestUrl,
+        paymentUrl: result.response.Data.paymentPage.paymentPageURL,
         transactionId: invoiceNo
       });
     }
 
-    throw new Error('Invalid response from HBL gateway');
+    throw new Error('Invalid response from HBL');
   } catch (error) {
-    console.error('Payment page generation failed:', error.message);
+    console.error('Payment failed:', error.message);
 
     if (req.body.invoiceNo) {
       await HBLTransaction.findOneAndUpdate(
         { txnId: req.body.invoiceNo },
         {
           status: 'FAILED',
-          errorMessage: error.response?.data?.message || error.message,
+          errorMessage: error.message,
           updatedAt: new Date()
         }
       );
@@ -112,7 +120,7 @@ exports.generateHblPaymentPage = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.response?.data?.message || error.message || 'Failed to generate HBL payment page'
+      message: error.message || 'Failed to generate payment page'
     });
   }
 };
