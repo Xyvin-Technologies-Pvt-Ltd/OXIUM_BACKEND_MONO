@@ -6,11 +6,18 @@ exports.generateHblPaymentPage = async (req, res) => {
   try {
     const { amount, invoiceNo, description, customerEmail, customerPhone, currencyCode, appId } = req.body;
 
+    console.log('📥 Received payment request:', req.body);
+
     if (!amount || !invoiceNo || !appId) {
       return res.status(400).json({ success: false, message: 'Amount, invoice number and app ID are required' });
     }
 
     const config = getHblConfig();
+    console.log('⚙️ HBL Config:', {
+      baseUrl: config.baseUrl,
+      merchantId: config.merchantId,
+      keyId: config.keyId
+    });
 
     // Create transaction record
     await HBLTransaction.create({
@@ -28,71 +35,96 @@ exports.generateHblPaymentPage = async (req, res) => {
       createdAt: new Date()
     });
 
-    // FIXED: Correct field names matching PHP demo
+    console.log('✅ Transaction record created');
+
+    // Get client IP
+    const clientIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip || '1.0.0.1';
+
     const hblRequest = {
-      merchantID: config.merchantId, 
+      amount: parseFloat(amount),
       invoiceNo: invoiceNo,
       description: description || `Payment for ${invoiceNo}`,
-      amount: parseFloat(amount).toFixed(2),
       currencyCode: (currencyCode || 'NPR').trim(),
-      paymentChannel: ['CC', 'DC', 'IB'],
-      customerEmail: customerEmail,
-      customerMobileno: customerPhone, 
-      userDefined1: appId,
-      userDefined2: '',
-      userDefined3: '',
-      userDefined4: '',
-      userDefined5: '',
-      frontendReturnUrl: `${config.successUrl}?txnId=${invoiceNo}`,
-      frontendCancelUrl: `${config.failUrl}?txnId=${invoiceNo}`,
-      backendReturnUrl: `${process.env.BASE_URL}/api/v1/payment/hbl/webhook`,
-      enable3DS: 'N'
+      customerEmail: customerEmail || '',
+      customerPhone: customerPhone || '',
+      appId: appId || ''
     };
 
-    const encryptedPayload = await createJosePayload(hblRequest);
+    console.log('📤 Request payload to be encrypted:', JSON.stringify(hblRequest, null, 2));
+
+    const encryptedPayload = await createJosePayload(hblRequest, clientIp);
 
     const headers = {
       'Content-Type': 'application/jose; charset=utf-8',
-      Accept: 'application/jose',
-      token: config.apiKey,
-      CompanyApiKey: config.apiKey
+      'Accept': 'application/jose',
+      'CompanyApiKey': config.apiKey
     };
+
+    console.log('🚀 Sending request to HBL:', `${config.baseUrl}/api/1.0/Payment/prePaymentUi`);
 
     let result;
     try {
-      const response = await axios.post(`${config.baseUrl}/api/2.0/Payment/prePaymentUi`, encryptedPayload, {
+      const response = await axios.post(`${config.baseUrl}/api/1.0/Payment/prePaymentUi`, encryptedPayload, {
         headers,
         timeout: 30000
       });
 
+      console.log('✅ HBL API Response received');
       result = await decryptJoseResponse(response.data);
+      console.log('📥 Decrypted response:', JSON.stringify(result, null, 2));
     } catch (error) {
-      console.error('HBL API failed:', error.message);
-      if (error.response?.data) {
-        try {
-          const errorData = await decryptJoseResponse(error.response.data);
-          console.error('HBL Error:', errorData);
-          return res.status(400).json({
-            success: false,
-            message: errorData.response?.apiResponse?.responseDescription || 'HBL API error'
-          });
-        } catch (e) {
-          console.error('Could not decrypt error');
+      console.error('❌ HBL API failed:', error.message);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+        console.error('Response data type:', typeof error.response.data);
+        console.error('Response data length:', error.response.data?.length);
+        
+        if (error.response.data && error.response.data.length > 0) {
+          try {
+            const errorData = await decryptJoseResponse(error.response.data);
+            console.error('🔍 Decrypted HBL Error:', JSON.stringify(errorData, null, 2));
+            
+            return res.status(400).json({
+              success: false,
+              message: errorData.response?.apiResponse?.responseDescription || 
+                       errorData.apiResponse?.responseDescription || 
+                       'HBL API error',
+              errorDetails: errorData
+            });
+          } catch (decryptError) {
+            console.error('❌ Could not decrypt error response:', decryptError.message);
+            console.error('Raw error data (first 500 chars):', error.response.data.substring(0, 500));
+          }
+        } else {
+          console.error('❌ HBL returned empty response body with status 400');
+          console.error('Possible reasons:');
+          console.error('1. Invalid merchant credentials');
+          console.error('2. Invalid API key or token');
+          console.error('3. IP whitelisting required');
+          console.error('4. Invalid request structure');
         }
+      } else if (error.request) {
+        console.error('❌ No response received from HBL');
       }
+      
       throw error;
     }
 
-    // FIXED: Check correct response structure
+    // ✅ Check correct response structure (matching PHP demo)
     if (result?.response?.Data?.paymentPage?.paymentPageURL) {
       await HBLTransaction.findOneAndUpdate(
         { txnId: invoiceNo },
         {
           status: 'PROCESSING',
-          gatewayReference: result.response.Data.invoiceNo,
+          gatewayReference: result.response.Data.invoiceNo || result.response.Data.orderNo,
           updatedAt: new Date()
         }
       );
+
+      console.log('✅ Payment page generated successfully');
 
       return res.status(200).json({
         success: true,
@@ -103,9 +135,12 @@ exports.generateHblPaymentPage = async (req, res) => {
       });
     }
 
-    throw new Error('Invalid response from HBL');
+    // Log the actual response structure for debugging
+    console.error('❌ Invalid response structure:', JSON.stringify(result, null, 2));
+    throw new Error('Invalid response from HBL - missing payment page URL');
   } catch (error) {
-    console.error('Payment failed:', error.message);
+    console.error('❌ Payment failed:', error.message);
+    console.error('Stack:', error.stack);
 
     if (req.body.invoiceNo) {
       await HBLTransaction.findOneAndUpdate(
@@ -120,13 +155,11 @@ exports.generateHblPaymentPage = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: error.message || 'Failed to generate payment page'
+      message: error.message || 'Failed to generate payment page',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
-
-
-
 
 // Check transaction status
 exports.checkHblTransactionStatus = async (req, res) => {
@@ -172,17 +205,36 @@ exports.checkHblTransactionStatus = async (req, res) => {
   }
 };
 
-// Success callback
+// Success callback - enhanced logging
 exports.hblPaymentSuccess = async (req, res) => {
   try {
-    const { invoiceNo, txnReference, respCode, respDesc, paymentChannel } = req.body;
+    const data = req.method === 'POST' ? req.body : req.query;
+    
+    console.log('🎯 SUCCESS CALLBACK TRIGGERED:', {
+      method: req.method,
+      headers: req.headers,
+      data: data,
+      fullUrl: req.originalUrl
+    });
 
-    console.log('✅ Payment success callback:', req.body);
+    const { 
+      invoiceNo, 
+      orderNo, 
+      txnReference, 
+      respCode, 
+      respDesc, 
+      paymentChannel,
+      txnId
+    } = data;
 
-    if (invoiceNo) {
+    const transactionId = invoiceNo || orderNo || txnId;
+
+    if (transactionId) {
+      console.log(`🎯 Processing success for transaction: ${transactionId}`);
+      
       if (respCode === '0000' || respCode === '2000') {
         await HBLTransaction.findOneAndUpdate(
-          { txnId: invoiceNo },
+          { txnId: transactionId },
           { 
             status: 'SUCCESS',
             gatewayReference: txnReference,
@@ -192,10 +244,12 @@ exports.hblPaymentSuccess = async (req, res) => {
             updatedAt: new Date()
           }
         );
-        return res.redirect(`${process.env.FRONTEND_URL}/payment/success?txnId=${invoiceNo}&gateway=HBL`);
+        console.log(`✅ PAYMENT SUCCESS: ${transactionId}`);
+        return res.redirect(`${process.env.FRONTEND_URL}/payment/success?txnId=${transactionId}&gateway=HBL&ref=${txnReference}`);
       } else {
+        console.log(`❌ Payment not successful. Response code: ${respCode}, Description: ${respDesc}`);
         await HBLTransaction.findOneAndUpdate(
-          { txnId: invoiceNo },
+          { txnId: transactionId },
           { 
             status: 'FAILED',
             gatewayReference: txnReference,
@@ -205,28 +259,43 @@ exports.hblPaymentSuccess = async (req, res) => {
             updatedAt: new Date()
           }
         );
-        return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?txnId=${invoiceNo}&gateway=HBL&error=${encodeURIComponent(respDesc)}`);
+        return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?txnId=${transactionId}&gateway=HBL&error=${encodeURIComponent(respDesc || 'payment_failed')}&code=${respCode}`);
       }
     }
 
+    console.log('❌ No transaction ID in success callback');
     res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL&error=invalid_transaction`);
 
   } catch (error) {
-    console.error('Payment success handler failed:', error);
+    console.error('💥 Success callback error:', error);
     res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL&error=processing_error`);
   }
 };
 
-// Failure callback
+// Failure callback - handle both POST and GET
 exports.hblPaymentFailure = async (req, res) => {
   try {
-    const { invoiceNo, respDesc } = req.body;
+    // Handle both POST (req.body) and GET (req.query) requests
+    const data = req.method === 'POST' ? req.body : req.query;
+    
+    const { 
+      invoiceNo, 
+      orderNo, 
+      respDesc,
+      txnId  // Some gateways use different field names
+    } = data;
 
-    console.log('❌ Payment failure callback:', req.body);
+    console.log('❌ Payment failure callback received:', {
+      method: req.method,
+      data: data
+    });
 
-    if (invoiceNo) {
+    // Use any available transaction identifier
+    const transactionId = invoiceNo || orderNo || txnId;
+
+    if (transactionId) {
       await HBLTransaction.findOneAndUpdate(
-        { txnId: invoiceNo },
+        { txnId: transactionId },
         { 
           status: 'FAILED',
           errorMessage: respDesc || 'Payment cancelled by user',
@@ -234,9 +303,11 @@ exports.hblPaymentFailure = async (req, res) => {
           updatedAt: new Date()
         }
       );
-      return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?txnId=${invoiceNo}&gateway=HBL&error=${encodeURIComponent(respDesc || 'cancelled')}`);
+      console.log(`❌ Payment marked as failed for: ${transactionId}`);
+      return res.redirect(`${process.env.FRONTEND_URL}/payment/failed?txnId=${transactionId}&gateway=HBL&error=${encodeURIComponent(respDesc || 'cancelled')}`);
     }
 
+    console.log('❌ No transaction ID found in failure callback');
     res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL`);
 
   } catch (error) {
@@ -246,49 +317,58 @@ exports.hblPaymentFailure = async (req, res) => {
 };
 
 // Webhook handler
+// Webhook handler - enhanced logging
 exports.hblWebhook = async (req, res) => {
   try {
     const encryptedPayload = req.body;
     
-    console.log('📩 Received HBL webhook');
+    console.log('📩 WEBHOOK RECEIVED:', {
+      headers: req.headers,
+      bodyLength: encryptedPayload?.length
+    });
 
     const decryptedData = await decryptJoseResponse(encryptedPayload);
-    console.log('Decrypted webhook data:', decryptedData);
+    console.log('🔓 Decrypted webhook data:', JSON.stringify(decryptedData, null, 2));
 
-    const { invoiceNo, txnReference, respCode, respDesc, paymentChannel } = decryptedData;
+    const { invoiceNo, orderNo, txnReference, respCode, respDesc, paymentChannel } = decryptedData;
 
-    if (respCode === '0000' || respCode === '2000') {
-      await HBLTransaction.findOneAndUpdate(
-        { txnId: invoiceNo },
-        { 
-          status: 'SUCCESS',
-          gatewayReference: txnReference,
-          referenceId: txnReference,
-          paymentMethod: paymentChannel,
-          completedAt: new Date(),
-          updatedAt: new Date()
-        }
-      );
-      console.log(`✅ Payment successful for invoice: ${invoiceNo}`);
-    } else {
-      await HBLTransaction.findOneAndUpdate(
-        { txnId: invoiceNo },
-        { 
-          status: 'FAILED',
-          gatewayReference: txnReference,
-          referenceId: txnReference,
-          errorMessage: respDesc,
-          completedAt: new Date(),
-          updatedAt: new Date()
-        }
-      );
-      console.log(`❌ Payment failed for invoice: ${invoiceNo} - ${respDesc}`);
+    const transactionId = invoiceNo || orderNo;
+
+    if (transactionId) {
+      console.log(`📩 Webhook processing: ${transactionId}, Code: ${respCode}`);
+      
+      if (respCode === '0000' || respCode === '2000') {
+        await HBLTransaction.findOneAndUpdate(
+          { txnId: transactionId },
+          { 
+            status: 'SUCCESS',
+            gatewayReference: txnReference,
+            referenceId: txnReference,
+            paymentMethod: paymentChannel,
+            completedAt: new Date(),
+            updatedAt: new Date()
+          }
+        );
+        console.log(`✅ WEBHOOK: Payment successful for: ${transactionId}`);
+      } else {
+        await HBLTransaction.findOneAndUpdate(
+          { txnId: transactionId },
+          { 
+            status: 'FAILED',
+            gatewayReference: txnReference,
+            errorMessage: respDesc,
+            completedAt: new Date(),
+            updatedAt: new Date()
+          }
+        );
+        console.log(`❌ WEBHOOK: Payment failed for: ${transactionId} - ${respDesc}`);
+      }
     }
 
     res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('Webhook processing failed:', error);
+    console.error('💥 Webhook processing failed:', error);
     res.status(200).json({ success: false, error: error.message });
   }
 };
