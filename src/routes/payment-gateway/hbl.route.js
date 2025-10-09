@@ -2,17 +2,14 @@ const express = require("express");
 const router = express.Router();
 const hblController = require("../../controllers/paymentgateway.controller/hbl.controller");
 
-// HBL Payment routes
+// HBL Payment
 router.post("/payment/hbl/generate-page", hblController.generateHblPaymentPage);
 
-// HBL Callbacks - Support BOTH POST and GET
-router.post("/payment/hbl/success", hblController.hblPaymentSuccess); // ← ADD POST
+// HBL Callbacks=
 router.get("/payment/hbl/success", hblController.hblPaymentSuccess); 
-
-router.post("/payment/hbl/failure", hblController.hblPaymentFailure); // ← ADD POST  
 router.get("/payment/hbl/failure", hblController.hblPaymentFailure); 
 
-// HBL Webhook
+// HBL Webhook : This endpoint requires configuration in HBL merchant portal
 router.post("/payment/hbl/webhook", hblController.hblWebhook);
 
 // HBL Transaction status
