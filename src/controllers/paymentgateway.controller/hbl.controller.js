@@ -1,15 +1,33 @@
 const HBLTransaction = require('../../models/HBLTransaction');
+const WalletTransaction = require('../../models/walletTransactionSchema');
+const User = require('../../models/userSchema');
 const axios = require('axios');
 const { createJosePayload, decryptJoseResponse, getHblConfig } = require('../../utils/hblJose.utils');
 
 exports.generateHblPaymentPage = async (req, res) => {
   try {
-    const { amount, description } = req.body;
+    const { amount, description, userId } = req.body;
 
     if (!amount) {
       return res.status(400).json({ 
         success: false, 
         message: 'Amount is required' 
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required' 
+      });
+    }
+
+    // Verify user exists by custom userId
+    const user = await User.findOne({ userId: userId });
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
       });
     }
 
@@ -19,7 +37,7 @@ exports.generateHblPaymentPage = async (req, res) => {
     const txnId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
     const invoiceNo = txnId;
 
-    // Create transaction record
+    // Create HBL transaction record
     await HBLTransaction.create({
       txnId: txnId,
       merchantId: config.merchantId,
@@ -30,6 +48,7 @@ exports.generateHblPaymentPage = async (req, res) => {
       invoiceNo: invoiceNo,
       userDefined1: process.env.HBL_APP_ID,
       status: 'INITIATED',
+      userId: userId, // Store custom userId as string
       createdAt: new Date()
     });
 
@@ -126,6 +145,7 @@ exports.hblPaymentSuccess = async (req, res) => {
     const { orderNo, controllerInternalId } = req.query;
 
     if (orderNo) {
+      // Update HBL transaction
       await HBLTransaction.findOneAndUpdate(
         { txnId: orderNo },
         { 
@@ -137,6 +157,42 @@ exports.hblPaymentSuccess = async (req, res) => {
           updatedAt: new Date()
         }
       );
+
+      // Create WalletTransaction ONLY on success
+      const hblTransaction = await HBLTransaction.findOne({ txnId: orderNo });
+      if (hblTransaction && hblTransaction.userId) {
+        const customUserId = hblTransaction.userId;
+        const amount = hblTransaction.amount;
+
+        // Find user by custom userId
+        const user = await User.findOne({ userId: customUserId });
+        if (user) {
+          // Create WalletTransaction record with user ObjectId
+          await WalletTransaction.create({
+            user: user._id, // Use MongoDB ObjectId here
+            amount: amount,
+            type: 'wallet top-up',
+            status: 'success',
+            transactionId: orderNo,
+            currency: 'NPR',
+            external_payment_ref: controllerInternalId,
+            paymentId: controllerInternalId,
+            reference: 'HBL Payment Gateway',
+            userWalletUpdated: true
+          });
+
+          // Update user wallet using custom userId
+          await User.findOneAndUpdate(
+            { userId: customUserId },
+            { $inc: { wallet: amount } },
+            { new: true }
+          );
+
+          console.log(`✅ Wallet updated for user ${customUserId}: +${amount} NPR`);
+        } else {
+          console.error(`❌ User not found with userId: ${customUserId}`);
+        }
+      }
 
       return res.redirect(
         `${process.env.FRONTEND_URL}/payment/success?txnId=${orderNo}&gateway=HBL&ref=${controllerInternalId}`
@@ -157,6 +213,7 @@ exports.hblPaymentFailure = async (req, res) => {
     const transactionId = invoiceNo || orderNo || txnId;
 
     if (transactionId) {
+      // Update HBL transaction to failed
       await HBLTransaction.findOneAndUpdate(
         { txnId: transactionId },
         { 
@@ -199,6 +256,47 @@ exports.hblWebhook = async (req, res) => {
       if (respCode === '0000' || respCode === '2000') {
         updateData.status = 'SUCCESS';
         updateData.referenceId = txnReference;
+        
+        // Wallet update in webhook
+        const hblTransaction = await HBLTransaction.findOne({ txnId: transactionId });
+        if (hblTransaction && hblTransaction.userId) {
+          // Check if WalletTransaction already exists
+          const existingWalletTx = await WalletTransaction.findOne({ transactionId: transactionId });
+          
+          if (!existingWalletTx) {
+            const customUserId = hblTransaction.userId;
+            const amount = hblTransaction.amount;
+
+            // Find user by custom userId
+            const user = await User.findOne({ userId: customUserId });
+            if (user) {
+              // Create WalletTransaction record with user ObjectId
+              await WalletTransaction.create({
+                user: user._id, // Use MongoDB ObjectId here
+                amount: amount,
+                type: 'wallet top-up',
+                status: 'success',
+                transactionId: transactionId,
+                currency: 'NPR',
+                external_payment_ref: txnReference,
+                paymentId: txnReference,
+                reference: 'HBL Payment Gateway',
+                userWalletUpdated: true
+              });
+
+              // Update user wallet using custom userId
+              await User.findOneAndUpdate(
+                { userId: customUserId },
+                { $inc: { wallet: amount } },
+                { new: true }
+              );
+
+              console.log(`✅ Webhook: Wallet updated for user ${customUserId}: +${amount} NPR`);
+            } else {
+              console.error(`❌ Webhook: User not found with userId: ${customUserId}`);
+            }
+          }
+        }
       } else {
         updateData.status = 'FAILED';
         updateData.errorMessage = respDesc;

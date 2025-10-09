@@ -33,6 +33,7 @@ const hblTransactionSchema = new mongoose.Schema({
   userDefined1: { type: String },
   userDefined2: { type: String },
   userDefined3: { type: String },
+  userId: { type: String, required: true },
   completedAt: { type: Date }
 }, {
   timestamps: true
