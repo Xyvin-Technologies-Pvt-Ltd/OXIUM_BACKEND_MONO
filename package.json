@@ -26,6 +26,7 @@
     "http-errors": "^2.0.0",
     "jimp": "^0.22.12",
     "joi": "^17.13.1",
+    "jose": "^4.14.4",
     "jsonwebtoken": "^9.0.2",
     "khalti-payment": "^1.0.2",
     "moment": "^2.30.1",

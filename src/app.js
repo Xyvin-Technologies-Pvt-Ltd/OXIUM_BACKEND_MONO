@@ -20,6 +20,8 @@ const configRoute = require("./routes/configuration/configurationRoutes.js");
 const logRoute = require("./routes/logs/logRoutes.js");
 const adminRoute = require("./routes/user/adminRoutes.js");
 const userRoute = require("./routes/user/userRoutes.js");
+const connectipsRoute = require("./routes/payment-gateway/connectips.route");
+const hblRoute = require('./routes/payment-gateway/hbl.route.js');
 // const { runAllSeeds } = require("./seeds/index.js");
 const app = express();
 
@@ -52,6 +54,8 @@ app.get(BASE_PATH, (req, res) =>
 // runAllSeeds();
 
 app.use(`${BASE_PATH}/admin`, adminRoute);
+app.use(`${BASE_PATH}`, connectipsRoute);
+app.use(`${BASE_PATH}`, hblRoute);
 app.use(`${BASE_PATH}`, userRoute);
 app.use(`${BASE_PATH}`, authVerify, vehicleRoute);
 app.use(`${BASE_PATH}`, authVerify, brandRoute);
@@ -64,6 +68,7 @@ app.use(`${BASE_PATH}`, authVerify, evRoute);
 app.use(`${BASE_PATH}`, authVerify, paymentRoute);
 app.use(`${BASE_PATH}`, authVerify, configRoute);
 app.use(`${BASE_PATH}`, authVerify, logRoute);
+
 
 
 // 404
