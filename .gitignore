@@ -40,3 +40,7 @@ yarn-error.log
 .serverless
 
 run.sh
+
+# Ignore certificates and keys
+src/certs/
+src/keys/
