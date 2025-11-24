@@ -43,7 +43,7 @@ exports.initiatePayment = async (req, res) => {
     const txnData = {
       MERCHANTID: process.env.CONNECTIPS_MERCHANT_ID,
       APPID: process.env.CONNECTIPS_APP_ID,
-      APPNAME: process.env.CONNECTIPS_APP_NAME,
+      APPNAME: "GO E. C. Mercantile Pvt Ltd",
       TXNID: txnId,
       TXNDATE: txnDate,
       TXNCRNCY: "NPR",
