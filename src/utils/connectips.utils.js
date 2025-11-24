@@ -2,7 +2,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const path = require("path");
 
-const keyPath = path.join(__dirname, "../certs/CREDITOR-key.pem");
+const keyPath = path.join(__dirname, "../certs/GOEC-key.pem");
 
 // For PAYMENT INITIATION 
 exports.generatePaymentToken = (txnData) => {
