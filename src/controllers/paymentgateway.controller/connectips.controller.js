@@ -15,6 +15,9 @@ exports.initiatePayment = async (req, res) => {
       });
     }
 
+     // Convert rupees → paisa
+    const amountInPaisa = parseInt(TXNAMT) * 100;
+
     if (!userId) {
       return res.status(400).json({ 
         success: false, 
@@ -47,7 +50,7 @@ exports.initiatePayment = async (req, res) => {
       TXNID: txnId,
       TXNDATE: txnDate,
       TXNCRNCY: "NPR",
-      TXNAMT,
+      TXNAMT: amountInPaisa,
       REFERENCEID: referenceId,
       REMARKS,
       PARTICULARS,
@@ -60,7 +63,7 @@ exports.initiatePayment = async (req, res) => {
       txnId,
       merchantId: txnData.MERCHANTID,
       appId: txnData.APPID,
-      amount: TXNAMT,
+      amount: amountInPaisa,
       referenceId,
       status: "INITIATED",
       userId: userId, // Store custom userId
