@@ -3,7 +3,7 @@ name: Deploy OXIUM_BACKEND
 on:
   push:
     branches:
-      - prod
+      - Prod
   workflow_dispatch:
 
 jobs:
