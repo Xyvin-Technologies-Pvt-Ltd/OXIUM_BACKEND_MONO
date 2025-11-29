@@ -1,4 +1,4 @@
-name: Deploy OXIUM_BACKEND_PROD
+name: Deploy OXIUM_BACKEND
 
 on:
   push:
