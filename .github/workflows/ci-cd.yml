@@ -65,27 +65,43 @@ jobs:
               rm -rf aws awscliv2.zip
             fi
 
+            # Configure AWS credentials
+            echo "🔹 Configuring AWS credentials..."
+            mkdir -p ~/.aws
+
+            cat <<EOF > ~/.aws/credentials
+            [default]
+            aws_access_key_id=${{ env.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key=${{ env.AWS_SECRET_ACCESS_KEY }}
+            EOF
+
+            cat <<EOF > ~/.aws/config
+            [default]
+            region=${{ env.AWS_REGION }}
+            output=json
+            EOF
+
             # Log in to AWS ECR
-            echo "➡️ Logging in to ECR..."
+            echo "➡️ Logging into ECR..."
             aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
 
             # Pull new image
-            echo "➡️ Pulling new production image..."
+            echo "➡️ Pulling latest production image..."
             docker pull ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
             # Stop old container
-            echo "➡️ Stopping old container..."
+            echo "➡️ Removing previous container..."
             docker stop ${{ env.CONTAINER_NAME }} || true
             docker rm ${{ env.CONTAINER_NAME }} || true
 
             # Ensure .env exists
             if [ ! -f "${{ env.ENV_FILE_PATH }}" ]; then
-              echo "❌ Missing .env file at ${{ env.ENV_FILE_PATH }}"
+              echo "❌ .env.production not found: ${{ env.ENV_FILE_PATH }}"
               exit 1
             fi
 
             # Start new container
-            echo "➡️ Starting new container..."
+            echo "➡️ Starting backend container..."
             docker run -d \
               -p ${{ env.PORT }}:${{ env.PORT }} \
               --restart always \
@@ -93,5 +109,5 @@ jobs:
               --name ${{ env.CONTAINER_NAME }} \
               ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
 
-            echo "🎉 Deployment Successful!"
+            echo "🎉 Deployment Completed Successfully!"
             docker logs ${{ env.CONTAINER_NAME }} --tail 50
