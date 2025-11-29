@@ -17,7 +17,7 @@ jobs:
       ECR_REPOSITORY: mono-repo-without-ocpp
       IMAGE_TAG: prod
       CONTAINER_NAME: OXIUM_BACKEND_PROD
-      ENV_FILE_PATH: /home/ubuntu/goec/.env/.env.production
+      ENV_FILE_PATH: /root/goec/.env/.env.production
       PORT: 5050
 
     steps:
