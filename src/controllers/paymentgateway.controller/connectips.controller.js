@@ -35,8 +35,8 @@ exports.initiatePayment = async (req, res) => {
     const amountInRupees = parseInt(TXNAMT);
     const amountInPaisa = amountInRupees * 100;
 
-    const txnId = `TXN${Date.now()}`;
-    const referenceId = `REF${Date.now()}`;
+    const txnId = "TXN" + crypto.randomBytes(6).toString("hex").toUpperCase();
+    const referenceId = "REF" + crypto.randomBytes(6).toString("hex").toUpperCase();
 
     const now = new Date();
     const txnDate = `${String(now.getDate()).padStart(2, "0")}-${String(now.getMonth() + 1).padStart(2, "0")}-${now.getFullYear()}`;
