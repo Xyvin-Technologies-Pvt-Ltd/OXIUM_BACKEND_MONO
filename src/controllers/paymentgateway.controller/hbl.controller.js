@@ -9,25 +9,25 @@ exports.generateHblPaymentPage = async (req, res) => {
     const { amount, description, userId } = req.body;
 
     if (!amount) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Amount is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Amount is required'
       });
     }
 
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User ID is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
       });
     }
 
     // Verify user exists by custom userId
     const user = await User.findOne({ userId: userId });
     if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
     }
 
@@ -69,8 +69,8 @@ exports.generateHblPaymentPage = async (req, res) => {
     };
 
     const response = await axios.post(
-      `${config.baseUrl}/api/1.0/Payment/prePaymentUi`, 
-      encryptedPayload, 
+      `${config.baseUrl}/api/1.0/Payment/prePaymentUi`,
+      encryptedPayload,
       { headers, timeout: 30000 }
     );
 
@@ -107,105 +107,80 @@ exports.generateHblPaymentPage = async (req, res) => {
   }
 };
 
-exports.checkHblTransactionStatus = async (req, res) => {
-  try {
-    const { transactionId } = req.params;
-
-    if (!transactionId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Transaction ID is required'
-      });
-    }
-
-    const transaction = await HBLTransaction.findOne({ txnId: transactionId });
-    if (!transaction) {
-      return res.status(404).json({
-        success: false,
-        message: 'Transaction not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: { transaction }
-    });
-
-  } catch (error) {
-    console.error('Transaction status check failed:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to check transaction status'
-    });
-  }
-};
-
 exports.hblPaymentSuccess = async (req, res) => {
   try {
     const { orderNo, controllerInternalId } = req.query;
 
-    if (orderNo) {
-      // Update HBL transaction
-      await HBLTransaction.findOneAndUpdate(
-        { txnId: orderNo },
-        { 
-          status: 'SUCCESS',
-          gatewayReference: controllerInternalId,
-          referenceId: controllerInternalId,
-          paymentMethod: 'HBL',
-          completedAt: new Date(),
-          updatedAt: new Date()
-        }
-      );
-
-      // Create WalletTransaction ONLY on success
-      const hblTransaction = await HBLTransaction.findOne({ txnId: orderNo });
-      if (hblTransaction && hblTransaction.userId) {
-        const customUserId = hblTransaction.userId;
-        const amount = hblTransaction.amount;
-
-        // Find user by custom userId
-        const user = await User.findOne({ userId: customUserId });
-        if (user) {
-          // Create WalletTransaction record with user ObjectId
-          await WalletTransaction.create({
-            user: user._id, // Use MongoDB ObjectId here
-            amount: amount,
-            type: 'wallet top-up',
-            status: 'success',
-            transactionId: orderNo,
-            currency: 'NPR',
-            external_payment_ref: controllerInternalId,
-            paymentId: controllerInternalId,
-            reference: 'HBL Payment Gateway',
-            userWalletUpdated: true
-          });
-
-          // Update user wallet using custom userId
-          await User.findOneAndUpdate(
-            { userId: customUserId },
-            { $inc: { wallet: amount } },
-            { new: true }
-          );
-
-          console.log(`✅ Wallet updated for user ${customUserId}: +${amount} NPR`);
-        } else {
-          console.error(`❌ User not found with userId: ${customUserId}`);
-        }
-      }
-
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/payment/success?txnId=${orderNo}&gateway=HBL&ref=${controllerInternalId}`
-      );
+    if (!orderNo) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid transaction",
+      });
     }
 
-    res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL&error=invalid_transaction`);
+    // Update HBL transaction
+    await HBLTransaction.findOneAndUpdate(
+      { txnId: orderNo },
+      {
+        status: "SUCCESS",
+        gatewayReference: controllerInternalId,
+        referenceId: controllerInternalId,
+        paymentMethod: "HBL",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      }
+    );
+
+    // Update wallet
+    const hblTransaction = await HBLTransaction.findOne({ txnId: orderNo });
+    if (hblTransaction && hblTransaction.userId) {
+      const customUserId = hblTransaction.userId;
+      const amount = hblTransaction.amount;
+
+      const user = await User.findOne({ userId: customUserId });
+      if (user) {
+        // Create wallet transaction entry
+        await WalletTransaction.create({
+          user: user._id,
+          amount: amount,
+          type: "wallet top-up",
+          status: "success",
+          transactionId: orderNo,
+          currency: "NPR",
+          external_payment_ref: controllerInternalId,
+          paymentId: controllerInternalId,
+          reference: "HBL Payment Gateway",
+          userWalletUpdated: true,
+        });
+
+        // Update user's wallet
+        await User.findOneAndUpdate(
+          { userId: customUserId },
+          { $inc: { wallet: amount } }
+        );
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Payment successful",
+      transactionId: orderNo,
+      reference: controllerInternalId,
+      amount: hblTransaction?.amount || null,
+      userId: hblTransaction?.userId || null,
+    });
 
   } catch (error) {
-    console.error('Success callback error:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL&error=processing_error`);
+    console.error("Success callback error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Payment success handler failed",
+      error: error.message,
+    });
   }
 };
+
 
 exports.hblPaymentFailure = async (req, res) => {
   try {
@@ -213,35 +188,46 @@ exports.hblPaymentFailure = async (req, res) => {
     const transactionId = invoiceNo || orderNo || txnId;
 
     if (transactionId) {
-      // Update HBL transaction to failed
       await HBLTransaction.findOneAndUpdate(
         { txnId: transactionId },
-        { 
-          status: 'FAILED',
-          errorMessage: respDesc || 'Payment cancelled by user',
+        {
+          status: "FAILED",
+          errorMessage: respDesc || "Payment cancelled by user",
           completedAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         }
       );
 
-      return res.redirect(
-        `${process.env.FRONTEND_URL}/payment/failed?txnId=${transactionId}&gateway=HBL&error=${encodeURIComponent(respDesc || 'cancelled')}`
-      );
+      return res.status(200).json({
+        success: false,
+        message: "Payment failed",
+        transactionId,
+        error: respDesc || "cancelled",
+      });
     }
 
-    res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL`);
+    return res.status(400).json({
+      success: false,
+      message: "Invalid transaction",
+    });
 
   } catch (error) {
-    console.error('Payment failure handler failed:', error);
-    res.redirect(`${process.env.FRONTEND_URL}/payment/failed?gateway=HBL`);
+    console.error("Payment failure handler failed:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Payment failure handler error",
+      error: error.message,
+    });
   }
 };
+
 
 exports.hblWebhook = async (req, res) => {
   try {
     const encryptedPayload = req.body;
     const decryptedData = await decryptJoseResponse(encryptedPayload);
-    
+
     const { invoiceNo, orderNo, txnReference, respCode, respDesc, paymentChannel } = decryptedData;
     const transactionId = invoiceNo || orderNo;
 
@@ -256,13 +242,13 @@ exports.hblWebhook = async (req, res) => {
       if (respCode === '0000' || respCode === '2000') {
         updateData.status = 'SUCCESS';
         updateData.referenceId = txnReference;
-        
+
         // Wallet update in webhook
         const hblTransaction = await HBLTransaction.findOne({ txnId: transactionId });
         if (hblTransaction && hblTransaction.userId) {
           // Check if WalletTransaction already exists
           const existingWalletTx = await WalletTransaction.findOne({ transactionId: transactionId });
-          
+
           if (!existingWalletTx) {
             const customUserId = hblTransaction.userId;
             const amount = hblTransaction.amount;
@@ -313,5 +299,39 @@ exports.hblWebhook = async (req, res) => {
   } catch (error) {
     console.error('Webhook processing failed:', error);
     res.status(200).json({ success: false, error: error.message });
+  }
+};
+
+
+exports.checkHblTransactionStatus = async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+
+    if (!transactionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transaction ID is required'
+      });
+    }
+
+    const transaction = await HBLTransaction.findOne({ txnId: transactionId });
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: 'Transaction not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: { transaction }
+    });
+
+  } catch (error) {
+    console.error('Transaction status check failed:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to check transaction status'
+    });
   }
 };
