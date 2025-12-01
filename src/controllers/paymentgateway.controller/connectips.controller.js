@@ -2,6 +2,7 @@ const Transaction = require("../../models/Transaction");
 const WalletTransaction = require("../../models/walletTransactionSchema");
 const User = require("../../models/userSchema");
 const { generatePaymentToken, generateValidationToken } = require("../../utils/connectips.utils");
+const crypto = require("crypto");
 const axios = require("axios");
 
 exports.initiatePayment = async (req, res) => {
@@ -9,9 +10,24 @@ exports.initiatePayment = async (req, res) => {
     const { TXNAMT, REMARKS, PARTICULARS, userId } = req.body;
 
     if (!TXNAMT) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Amount is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'Amount is required'
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User ID is required'
+      });
+    }
+
+    const user = await User.findOne({ userId: userId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
       });
     }
 
@@ -19,29 +35,11 @@ exports.initiatePayment = async (req, res) => {
     const amountInRupees = parseInt(TXNAMT);
     const amountInPaisa = amountInRupees * 100;
 
-    if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'User ID is required' 
-      });
-    }
+    const txnId = `TXN-${crypto.randomUUID()}`;
+    const referenceId = `REF-${crypto.randomUUID()}`;
 
-    const user = await User.findOne({ userId: userId });
-    if (!user) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'User not found' 
-      });
-    }
-
-    const txnId = `TXN${Date.now()}`;
-    const referenceId = `REF${Date.now()}`;
-    
     const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const txnDate = `${day}-${month}-${year}`;
+    const txnDate = `${String(now.getDate()).padStart(2, "0")}-${String(now.getMonth() + 1).padStart(2, "0")}-${now.getFullYear()}`;
 
     const txnData = {
       MERCHANTID: process.env.CONNECTIPS_MERCHANT_ID,
@@ -58,7 +56,6 @@ exports.initiatePayment = async (req, res) => {
 
     txnData.TOKEN = generatePaymentToken(txnData);
 
-    // FIXED: Store amount in rupees, not paisa
     await Transaction.create({
       txnId,
       merchantId: txnData.MERCHANTID,
@@ -75,8 +72,6 @@ exports.initiatePayment = async (req, res) => {
       connectIPSUrl: process.env.CONNECTIPS_GATEWAY_URL,
       method: "POST",
       fields: txnData,
-      successURL: process.env.SUCCESS_URL,
-      failureURL: process.env.FAILURE_URL,
     });
   } catch (err) {
     console.error(err);
@@ -88,7 +83,7 @@ exports.paymentSuccess = async (req, res) => {
   try {
     const TXNID = req.query.TXNID;
     if (!TXNID) {
-      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+      return res.json({ success: false, message: "Transaction ID missing" });
     }
 
     const validationResult = await validateTransaction(TXNID);
@@ -97,18 +92,16 @@ exports.paymentSuccess = async (req, res) => {
       const transaction = await Transaction.findOne({ txnId: TXNID });
       if (transaction && transaction.userId) {
         const customUserId = transaction.userId;
-        
-        // FIXED: Use amount in rupees (not paisa)
+
         const amountInRupees = transaction.amount;
-        
+
         const user = await User.findOne({ userId: customUserId });
         if (user) {
-          // Check if already processed
-          const existingTx = await WalletTransaction.findOne({ 
+          const existingTx = await WalletTransaction.findOne({
             transactionId: TXNID,
             status: 'success'
           });
-          
+
           if (!existingTx) {
             await WalletTransaction.create({
               user: user._id,
@@ -132,13 +125,13 @@ exports.paymentSuccess = async (req, res) => {
         }
       }
 
-      return res.redirect(`${process.env.FRONTEND_URL}/payment-success?txnId=${TXNID}`);
+      return res.json({ success: true, status: "SUCCESS", txnId: TXNID });
     } else {
-      return res.redirect(`${process.env.FRONTEND_URL}/payment-failed?txnId=${TXNID}`);
+      res.json({ success: false, status: "FAILED", txnId: TXNID });
     }
   } catch (err) {
     console.error("Payment Success Handler Error:", err.message);
-    res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+    res.json({ success: false, status: "FAILED" });
   }
 };
 
@@ -146,17 +139,16 @@ exports.paymentFailure = async (req, res) => {
   try {
     const TXNID = req.query.TXNID;
     if (TXNID) {
-      // Mark transaction as failed
       await Transaction.findOneAndUpdate(
         { txnId: TXNID },
         { status: "FAILED" }
       );
     }
 
-    res.redirect(`${process.env.FRONTEND_URL}/payment-failed?txnId=${TXNID || ""}`);
+    res.json({ success: false, status: "FAILED", txnId: TXNID });
   } catch (err) {
     console.error("Payment Failure Handler Error:", err.message);
-    res.redirect(`${process.env.FRONTEND_URL}/payment-failed`);
+    res.json({ success: false, status: "FAILED" });
   }
 };
 
@@ -164,21 +156,20 @@ const validateTransaction = async (TXNID) => {
   const transaction = await Transaction.findOne({ txnId: TXNID });
   if (!transaction) throw new Error("Transaction not found");
 
-  // FIXED: Use amountInPaisa for validation (not transaction.amount)
   const amountForValidation = transaction.amountInPaisa || (transaction.amount * 100);
-  
+
   const token = generateValidationToken(
     transaction.merchantId,
     transaction.appId,
     transaction.txnId,
-    amountForValidation // Use paisa amount
+    amountForValidation
   );
 
   const validationData = {
     merchantId: transaction.merchantId,
     appId: transaction.appId,
-    referenceId: transaction.txnId,
-    txnAmt: amountForValidation.toString(), // Use paisa
+    referenceId: transaction.referenceId,
+    txnAmt: amountForValidation.toString(),
     token: token,
   };
 
@@ -197,4 +188,24 @@ const validateTransaction = async (TXNID) => {
   await transaction.save();
 
   return validationRes.data;
+};
+
+
+exports.checkPaymentStatus = async (req, res) => {
+  try {
+    const { txnId } = req.params;
+
+    const txn = await Transaction.findOne({ txnId });
+    if (!txn) {
+      return res.json({ status: "NOT_FOUND" });
+    }
+
+    res.json({
+      status: txn.status,
+      userId: txn.userId,
+      amount: txn.amount,
+    });
+  } catch (error) {
+    res.json({ status: "ERROR" });
+  }
 };
