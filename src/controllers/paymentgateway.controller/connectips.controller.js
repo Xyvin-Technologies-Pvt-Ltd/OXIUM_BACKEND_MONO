@@ -161,7 +161,7 @@ const validateTransaction = async (TXNID) => {
   const token = generateValidationToken(
     transaction.merchantId,
     transaction.appId,
-    transaction.txnId,
+    transaction.referenceId,
     amountForValidation
   );
 
