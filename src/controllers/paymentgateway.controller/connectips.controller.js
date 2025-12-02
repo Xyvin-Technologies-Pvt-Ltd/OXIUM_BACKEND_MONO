@@ -173,6 +173,8 @@ const validateTransaction = async (TXNID) => {
     token: token,
   };
 
+  console.log("VALIDATION DATA SENT:", validationData);
+
   const headers = {
     "Content-Type": "application/json",
     "Authorization": "Basic " + Buffer.from(`${process.env.CONNECTIPS_APP_ID}:${process.env.CONNECTIPS_BASIC_AUTH_PASSWORD}`).toString("base64"),
@@ -183,6 +185,8 @@ const validateTransaction = async (TXNID) => {
     validationData,
     { headers }
   );
+
+  console.log("VALIDATION RAW RESPONSE:", validationRes.data);
 
   transaction.status = validationRes.data.status === "SUCCESS" ? "SUCCESS" : "FAILED";
   await transaction.save();
