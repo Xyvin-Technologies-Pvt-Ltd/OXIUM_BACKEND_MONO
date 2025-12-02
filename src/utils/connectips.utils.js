@@ -15,8 +15,8 @@ exports.generatePaymentToken = (txnData) => {
 };
 
 // For VALIDATION
-exports.generateValidationToken = (merchantId, appId, txnId, txnAmt) => {
-  const tokenString = `MERCHANTID=${merchantId},APPID=${appId},TXNID=${txnId},TXNAMT=${txnAmt}`;
+exports.generateValidationToken = (merchantId, appId, referenceId, txnAmt) => {
+  const tokenString = `MERCHANTID=${merchantId},APPID=${appId},REFERENCEID=${referenceId},TXNAMT=${txnAmt}`;
 
   const sign = crypto.createSign("RSA-SHA256");
   sign.update(tokenString);
