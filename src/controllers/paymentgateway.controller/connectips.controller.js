@@ -36,7 +36,6 @@ exports.initiatePayment = async (req, res) => {
     const amountInPaisa = amountInRupees * 100;
 
     const txnId = "TXN" + crypto.randomBytes(6).toString("hex").toUpperCase();
-    const referenceId = "REF" + crypto.randomBytes(6).toString("hex").toUpperCase();
 
     const now = new Date();
     const txnDate = `${String(now.getDate()).padStart(2, "0")}-${String(now.getMonth() + 1).padStart(2, "0")}-${now.getFullYear()}`;
@@ -49,7 +48,7 @@ exports.initiatePayment = async (req, res) => {
       TXNDATE: txnDate,
       TXNCRNCY: "NPR",
       TXNAMT: amountInPaisa,
-      REFERENCEID: referenceId,
+      REFERENCEID: txnId,
       REMARKS: REMARKS || "Payment",
       PARTICULARS: PARTICULARS || "General Payment",
     };
@@ -62,7 +61,7 @@ exports.initiatePayment = async (req, res) => {
       appId: txnData.APPID,
       amount: amountInRupees, // Store in rupees for wallet update
       amountInPaisa: amountInPaisa, // Store paisa for ConnectIPS validation
-      referenceId,
+      referenceId : txnId,
       status: "INITIATED",
       userId: userId,
     });
@@ -161,19 +160,17 @@ const validateTransaction = async (TXNID) => {
   const token = generateValidationToken(
     transaction.merchantId,
     transaction.appId,
-    transaction.referenceId,
+    TXNID,
     amountForValidation
   );
 
   const validationData = {
     merchantId: transaction.merchantId,
     appId: transaction.appId,
-    referenceId: transaction.referenceId,
+    referenceId: TXNID,
     txnAmt: amountForValidation.toString(),
     token: token,
   };
-
-  console.log("VALIDATION DATA SENT:", validationData);
 
   const headers = {
     "Content-Type": "application/json",
@@ -185,8 +182,6 @@ const validateTransaction = async (TXNID) => {
     validationData,
     { headers }
   );
-
-  console.log("VALIDATION RAW RESPONSE:", validationRes.data);
 
   transaction.status = validationRes.data.status === "SUCCESS" ? "SUCCESS" : "FAILED";
   await transaction.save();
