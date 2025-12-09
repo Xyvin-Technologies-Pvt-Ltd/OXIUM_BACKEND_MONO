@@ -82,7 +82,7 @@ exports.paymentSuccess = async (req, res) => {
   try {
     const TXNID = req.query.TXNID;
     if (!TXNID) {
-      return res.json({ success: false, message: "Transaction ID missing" });
+      return res.redirect("goec://payment/failure");
     }
 
     const validationResult = await validateTransaction(TXNID);
@@ -124,13 +124,13 @@ exports.paymentSuccess = async (req, res) => {
         }
       }
 
-      return res.json({ success: true, status: "SUCCESS", txnId: TXNID });
+      return res.redirect(`goec://payment/success?txnId=${TXNID}`);
     } else {
-      res.json({ success: false, status: "FAILED", txnId: TXNID });
+      return res.redirect(`goec://payment/failure?txnId=${TXNID}`);
     }
   } catch (err) {
     console.error("Payment Success Handler Error:", err.message);
-    res.json({ success: false, status: "FAILED" });
+    return res.redirect("goec://payment/failure");
   }
 };
 
@@ -144,10 +144,10 @@ exports.paymentFailure = async (req, res) => {
       );
     }
 
-    res.json({ success: false, status: "FAILED", txnId: TXNID });
+    return res.redirect(`goec://payment/failure?txnId=${TXNID || ""}`);
   } catch (err) {
     console.error("Payment Failure Handler Error:", err.message);
-    res.json({ success: false, status: "FAILED" });
+    return res.redirect("goec://payment/failure");
   }
 };
 
