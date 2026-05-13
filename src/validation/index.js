@@ -51,6 +51,13 @@ const chargingTariffDefaultUpdateValidationSchema = Joi.object({
   tax: Joi.string(),
 });
 
+const adminCreateUserSchema = Joi.object({
+  mobile: Joi.string().required(),
+  username: Joi.string().allow("", null).optional(),
+  email: Joi.string().email().allow("", null).optional(),
+  wallet: Joi.number().optional(),
+}).unknown(true);
+
 module.exports = {
   vehicleValidationSchema,
   reviewEditSchema,
@@ -59,4 +66,5 @@ module.exports = {
   chargingTariffUpdateValidationSchema,
   chargingTariffDefaultValidationSchema,
   chargingTariffDefaultUpdateValidationSchema,
+  adminCreateUserSchema,
 };

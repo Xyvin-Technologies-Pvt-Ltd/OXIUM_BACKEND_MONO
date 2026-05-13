@@ -2,7 +2,7 @@ const evRoute = require("express").Router();
 const evMachineController = require("../../controllers/evMachine/evMachineController");
 const oemController = require("../../controllers/evMachine/oemController");
 const evModelController = require("../../controllers/evMachine/evModelController");
-const dashbaordController = require("../../controllers/evMachine/dashbaordController");
+const dashboardController = require("../../controllers/evMachine/dashboardController");
 
 const asyncHandler = require("../../utils/asyncHandler");
 
@@ -84,27 +84,27 @@ evRoute.get("/evModel/:id", asyncHandler(evModelController.getEvModel));
 //Dashboard
 evRoute.get(
   "/evMachine/dashboard/list",
-  asyncHandler(dashbaordController.getDashboardList)
+  asyncHandler(dashboardController.getDashboardList)
 );
 evRoute.get(
   "/evMachine/dashboard/tariffDetails/:cpid",
-  asyncHandler(dashbaordController.getTariff)
+  asyncHandler(dashboardController.getTariff)
 );
 evRoute.post(
   "/evMachine/dashboard/changeTariff/:cpid",
-  asyncHandler(dashbaordController.ChangeTariff)
+  asyncHandler(dashboardController.ChangeTariff)
 );
 evRoute.get(
   "/evMachine/dashboard/:id",
-  asyncHandler(dashbaordController.getDashboardListById)
+  asyncHandler(dashboardController.getDashboardListById)
 );
 evRoute.get(
   "/evMachine/dashboard/report/2",
-  asyncHandler(dashbaordController.getReport2)
+  asyncHandler(dashboardController.getReport2)
 );
 evRoute.post(
   "/evMachine/dashboardReport/report",
-  asyncHandler(dashbaordController.getReport)
+  asyncHandler(dashboardController.getReport)
 );
 
 module.exports = evRoute;

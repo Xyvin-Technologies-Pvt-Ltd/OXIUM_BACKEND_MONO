@@ -44,3 +44,5 @@ run.sh
 # Ignore certificates and keys
 src/certs/
 src/keys/
+# Never commit Firebase JSON; use FIREBASE_CREDENTIAL_PATH or FIREBASE_SERVICE_ACCOUNT_JSON
+**/firebase.config.json

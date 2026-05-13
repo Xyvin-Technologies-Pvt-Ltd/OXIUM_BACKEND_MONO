@@ -5,10 +5,20 @@ require('dotenv').config()
 module.exports = {
     signAccessToken: (userId, role, userEmail) => {
         return new Promise((resolve, reject) => {
+            let roleLabel
+            let roleId
+            if (role !== null && typeof role === 'object') {
+                roleLabel = role.role_name || role.name || 'role'
+                roleId = role._id ? role._id.toString() : undefined
+            } else {
+                roleLabel = role
+                roleId = undefined
+            }
 
             const payload = {
-                role: role,
-                userId: userId
+                role: roleLabel,
+                userId: userId,
+                ...(roleId && { roleId }),
             }
 
             const secret = process.env.ACCESS_TOKEN_SECRET
@@ -16,7 +26,7 @@ module.exports = {
             const options = {
                 expiresIn: '1y',
                 issuer: 'OXIUM',
-                audience: userEmail
+                audience: userEmail || String(userId),
             }
 
             JWT.sign(payload, secret, options, (err, token) => {
@@ -43,7 +53,7 @@ module.exports = {
             }
 
             req.payload = payload
-            next();
+            next()
         })
 
     },
@@ -77,7 +87,7 @@ module.exports = {
     verifyRefreshToken: (refreshToken) => {
         return new Promise((resolve, reject) => {
             JWT.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, payload) => {
-                if (err) return (createError.Unauthorized())
+                if (err) return reject(createError.Unauthorized())
 
                 const userId = payload.aud
 

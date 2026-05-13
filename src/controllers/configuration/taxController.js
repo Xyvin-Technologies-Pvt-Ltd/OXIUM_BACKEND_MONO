@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const createError = require("http-errors");
-const Tax = require("../../models/taxShema");
+const Tax = require("../../models/taxSchema");
 const { taxValidationSchema } = require("../../validation");
 
 // create tax

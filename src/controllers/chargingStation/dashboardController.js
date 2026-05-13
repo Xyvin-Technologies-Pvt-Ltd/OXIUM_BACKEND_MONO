@@ -17,38 +17,41 @@ const {
   getChargingStationByIdForDashboardPipeline,
   getCPIDListByChargingStationPipeline,
 } = require("./pipes");
-const Role = require("../../models/rolesSchema");
 
 // Generate a unique identifier (UUID)
 const uniqueId = uuidv4();
 
 exports.getChargingStationListForDashboard = async (req, res) => {
-  const { location_access } = await Role.findById(
-    req.role._id,
-    "location_access"
-  );
-  const { pageNo, searchQuery } = req.query;
+  const location_access = req.roleDoc?.location_access;
+  const { parsePagination } = require("../../utils/parsePagination");
+  const { escapeRegex } = require("../../utils/escapeRegex");
+
+  const { searchQuery } = req.query;
 
   const filter = {};
 
+  const { skip, limit } = parsePagination(req.query, { pageSize: 10 });
+
   if (searchQuery) {
+    const safe = escapeRegex(searchQuery);
     filter.$or = [
-      { name: { $regex: searchQuery, $options: "i" } },
-      { address: { $regex: searchQuery, $options: "i" } },
-      { country: { $regex: searchQuery, $options: "i" } },
-      { state: { $regex: searchQuery, $options: "i" } },
-      { owner: { $regex: searchQuery, $options: "i" } },
+      { name: { $regex: safe, $options: "i" } },
+      { address: { $regex: safe, $options: "i" } },
+      { country: { $regex: safe, $options: "i" } },
+      { state: { $regex: safe, $options: "i" } },
+      { owner: { $regex: safe, $options: "i" } },
     ];
   }
 
-  if (location_access) {
+  if (location_access != null && location_access.length > 0) {
     filter._id = { $in: location_access };
   }
 
   let list = await ChargingStation.find(filter)
     .sort({ updatedAt: -1 })
-    .skip(10 * (pageNo - 1))
-    .limit(10);
+    .skip(skip)
+    .limit(limit)
+    .lean();
   let totalCount = await ChargingStation.find(filter).countDocuments();
   res
     .status(200)
@@ -56,14 +59,11 @@ exports.getChargingStationListForDashboard = async (req, res) => {
 };
 
 exports.getChargingStationListForDropdown = async (req, res) => {
-  const { location_access } = await Role.findById(
-    req.role._id,
-    "location_access"
-  );
+  const location_access = req.roleDoc?.location_access;
 
   const filter = {};
 
-  if (location_access) {
+  if (location_access != null && location_access.length > 0) {
     filter._id = { $in: location_access };
   }
 

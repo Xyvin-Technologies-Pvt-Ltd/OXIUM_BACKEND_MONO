@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { khaltiService, khaltiCallback } = require("khalti-payment");
-const crypto = require("crypto");
+const crypto = require("node:crypto");
+const createError = require("http-errors");
 const { KHALTI_GATEWAY_URL, KHALTI_SECRET_KEY, KHALTI_RETURN_URL } =
   process.env;
 const { createRazorPaymentOrder } = require("../../helpers/razorpayService");
@@ -11,7 +12,11 @@ const {
 
 exports.createPaymentOrder = async (req, res) => {
   const { amount, currency, userId, type } = req.body;
-  if (!userId) throw new createError(400, "UserId required for payment order");
+  if (!userId) throw createError(400, "UserId required for payment order");
+
+  if (String(req.userId) !== String(userId)) {
+    throw createError(403, "Cannot create payment order for another user");
+  }
 
   const paymentGateway = "Razorpay";
   let order;
@@ -67,7 +72,7 @@ exports.paymentVerify = async (req, res) => {
 
   //Aswin update transaction
   if (razorpay_signature !== expectedSign)
-    throw new createError(402, "Payment verification failed!");
+    throw createError(400, "Payment verification failed!");
 
   // conditional save of rfid/topup charge
   res

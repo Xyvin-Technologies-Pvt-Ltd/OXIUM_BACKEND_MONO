@@ -8,34 +8,39 @@ const {
   getReport2Pipeline,
   getReportPipeline,
 } = require("./pipes");
-const Role = require("../../models/rolesSchema");
 
 exports.getDashboardList = async (req, res) => {
-  const { location_access } = await Role.findById(
-    req.role._id,
-    "location_access"
-  );
-  const locations = location_access.map((id) => new mongoose.Types.ObjectId(id));
-  const { pageNo, searchQuery } = req.query;
+  const { parsePagination } = require("../../utils/parsePagination");
+  const { escapeRegex } = require("../../utils/escapeRegex");
+
+  const location_access = req.roleDoc?.location_access;
+  const locations =
+    location_access && location_access.length > 0
+      ? location_access.map((id) => new mongoose.Types.ObjectId(id))
+      : [];
+
+  const { searchQuery } = req.query;
+  const { skip, limit } = parsePagination(req.query, { pageSize: 10 });
 
   const filter = {};
 
   if (searchQuery) {
+    const safe = escapeRegex(searchQuery);
     filter.$or = [
-      { name: { $regex: searchQuery, $options: "i" } },
-      { CPID: { $regex: searchQuery, $options: "i" } },
-      { cpidStatus: { $regex: searchQuery, $options: "i" } },
-      { authorization_key: { $regex: searchQuery, $options: "i" } },
-      { "chargingStationDetails.name": { $regex: searchQuery, $options: "i" } },
-      { "evModelDetails.oem": { $regex: searchQuery, $options: "i" } },
+      { name: { $regex: safe, $options: "i" } },
+      { CPID: { $regex: safe, $options: "i" } },
+      { cpidStatus: { $regex: safe, $options: "i" } },
+      { authorization_key: { $regex: safe, $options: "i" } },
+      { "chargingStationDetails.name": { $regex: safe, $options: "i" } },
+      { "evModelDetails.oem": { $regex: safe, $options: "i" } },
     ];
   }
 
   try {
     const pipeline = getDashboardListPipeline(filter, locations);
     const pipedData = await EvMachine.aggregate([...pipeline])
-      .skip(10 * (pageNo - 1))
-      .limit(10);
+      .skip(skip)
+      .limit(limit);
 
     const countPipeline = [...pipeline, { $count: "totalCount" }];
 

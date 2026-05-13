@@ -3,18 +3,22 @@ const createError = require("http-errors");
 const generateUniqueReceiptID = require("../utils/generateUniqueID");
 
 exports.createRazorPaymentOrder = async (amount, currency) => {
+  const key_id = process.env.RAZORPAY_KEY_ID;
+  const key_secret = process.env.RAZORPAY_SECRET_KEY;
+
+  if (!key_id || !key_secret) {
+    throw createError(503, "Razorpay keys not configured");
+  }
+
   try {
     const instance = new Razorpay({
-      // key_id: process.env.RAZORPAY_ID_KEY,
-      // key_secret: process.env.RAZORPAY_SECRET_KEY,
-      // key_id: process.env.RAZOR_TEST_ID,
-      // key_secret: process.env.RAZOR_TEST_SECRET,
+      key_id,
+      key_secret,
     });
 
-    // setting up options for razorpay order.
     const options = {
       amount: Number(amount) * 100,
-      currency: currency,
+      currency,
       receipt: generateUniqueReceiptID(),
     };
 
@@ -25,7 +29,7 @@ exports.createRazorPaymentOrder = async (amount, currency) => {
     }
     return order;
   } catch (error) {
-    console.log(error);
-    throw new createError(400, "Bad request - Payment Gateway");
+    console.warn("[razorpay]", error.message || error);
+    throw createError(400, "Bad request - Payment Gateway");
   }
 };

@@ -3,15 +3,25 @@ const multer = require("multer");
 const upload = multer({ storage: multer.memoryStorage() });
 const asyncHandler = require("../../utils/asyncHandler");
 const authVerify = require("../../middlewares/authVerify");
+const requireAdminRole = require("../../middlewares/requireAdminRole");
+const { otpLimiter, loginLimiter } = require("../../middlewares/rateLimiters");
 const userCRUDController = require("../../controllers/user/userBasicCRUDControllers");
 const userAuthController = require("../../controllers/user/userAuthController");
 const userStationController = require("../../controllers/user/userStationController");
 const userVehicleController = require("../../controllers/user/userVehicleController");
 const userRFIDController = require("../../controllers/user/userRFIDController");
 const userController = require('../../controllers/user/userController')
+const { validateBody } = require("../../middlewares/validateRequest")
+const { adminCreateUserSchema } = require("../../validation")
 
 //!user basic CRUD controller
-userRoute.post("/users/user", asyncHandler(userCRUDController.createUser));
+userRoute.post(
+  "/users/user",
+  authVerify,
+  requireAdminRole,
+  validateBody(adminCreateUserSchema),
+  asyncHandler(userCRUDController.createUser)
+);
 userRoute.get(
   "/users/list",
   authVerify,
@@ -52,9 +62,14 @@ userRoute.post(
 
 userRoute.get(
   "/users/sendOtp/:mobileNo",
+  otpLimiter,
   asyncHandler(userAuthController.sendOtp)
 );
-userRoute.put("/users/login/:mobileNo", asyncHandler(userAuthController.login));
+userRoute.put(
+  "/users/login/:mobileNo",
+  loginLimiter,
+  asyncHandler(userAuthController.login)
+);
 userRoute.get(
   "/users/transaction/rfid-authenticate/:rfid",
   authVerify,

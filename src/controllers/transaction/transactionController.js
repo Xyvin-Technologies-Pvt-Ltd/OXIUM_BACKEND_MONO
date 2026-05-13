@@ -1,4 +1,6 @@
 const WalletTransaction = require("../../models/walletTransactionSchema");
+const USER = require("../../models/userSchema");
+const mongoose = require("mongoose");
 const createError = require("http-errors");
 const moment = require("moment");
 const {
@@ -53,9 +55,11 @@ exports.createOrUpdateTransaction = async (req, res) => {
 
 // Get a walletTransaction list
 exports.getWalletTransactionList = async (req, res) => {
-  const walletTransaction = await WalletTransaction.find({}).sort({
-    createdAt: -1,
-  });
+  const walletTransaction = await WalletTransaction.find({})
+    .sort({
+      createdAt: -1,
+    })
+    .lean();
   if (!walletTransaction) {
     res.status(404).json({ error: "Transaction not found" });
   } else {
@@ -124,20 +128,25 @@ exports.updateWalletTransaction = async (req, res, internalCall = false) => {
       !updatedTransaction.userWalletUpdated &&
       updatedTransaction.status == "success"
     ) {
-      const payload = {
-        amount: updatedTransaction.amount,
-      };
-      req.body = payload;
-      req.params.userId = updatedTransaction.user;
-      const { addToWallet } = require("../user/userController"); //! lazyloading to avoid circular dependency issue
-
-      const userUpdated = await addToWallet(req, res, true);
-      if (userUpdated) {
+      const session = await mongoose.startSession();
+      session.startTransaction();
+      try {
+        await USER.findByIdAndUpdate(
+          updatedTransaction.user,
+          { $inc: { wallet: updatedTransaction.amount } },
+          { session, new: true }
+        );
         await WalletTransaction.findOneAndUpdate(
           { transactionId: req.params.transactionId },
           { $set: { userWalletUpdated: true } },
-          { new: true }
+          { session, new: true }
         );
+        await session.commitTransaction();
+      } catch (e) {
+        await session.abortTransaction();
+        throw e;
+      } finally {
+        session.endSession();
       }
     }
     if (internalCall === true) return updatedTransaction;
@@ -158,22 +167,26 @@ exports.deleteWalletTransaction = async (req, res) => {
 };
 
 exports.dashboardTransactionList = async (req, res) => {
-  const { pageNo, searchQuery } = req.query;
+  const { parsePagination } = require("../../utils/parsePagination");
+  const { escapeRegex } = require("../../utils/escapeRegex");
+  const { searchQuery } = req.query;
 
   const filter = {};
+  const { skip, limit } = parsePagination(req.query, { pageSize: 10 });
 
   if (searchQuery) {
+    const safe = escapeRegex(searchQuery);
     filter.$or = [
-      { status: { $regex: searchQuery, $options: "i" } },
-      { type: { $regex: searchQuery, $options: "i" } },
-      { "userDetails.username": { $regex: searchQuery, $options: "i" } },
+      { status: { $regex: safe, $options: "i" } },
+      { type: { $regex: safe, $options: "i" } },
+      { "userDetails.username": { $regex: safe, $options: "i" } },
     ];
   }
 
   const transactionPipeline = getTransactionPipeline(filter);
   const pipedData = await WalletTransaction.aggregate(transactionPipeline)
-    .skip(10 * (pageNo - 1))
-    .limit(10);
+    .skip(skip)
+    .limit(limit);
 
   const totalCountPipeline = getTotalCountPipeline();
   const piped = await WalletTransaction.aggregate(totalCountPipeline);

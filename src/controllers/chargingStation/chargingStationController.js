@@ -27,10 +27,15 @@ exports.createChargingStation = async (req, res) => {
   });
 
   const savedChargingStation = await chargingStation.save();
-  req.params.id = req.role._id;
+  req.params.id = req.roleDoc?._id?.toString();
+  if (!req.params.id) {
+    return res
+      .status(403)
+      .json({ status: false, message: "Forbidden: invalid role scope" });
+  }
   req.body.location_access = savedChargingStation._id;
   const upRole = await pushRole(req, res, true);
-  let token = await signAccessToken(req.userId, upRole, req.userId.email);
+  let token = await signAccessToken(String(req.userId), upRole, "");
   res.status(201).json({
     status: true,
     message: "Ok",
@@ -203,7 +208,9 @@ exports.deleteChargingStation = async (req, res) => {
       .status(404)
       .json({ status: false, message: "Charging Station not found" });
   } else {
-    await removeLoc(req.role._id, req.params.chargingStationId);
+    if (req.roleDoc?._id) {
+      await removeLoc(req.roleDoc._id, req.params.chargingStationId);
+    }
     res.status(204).end();
   }
 };

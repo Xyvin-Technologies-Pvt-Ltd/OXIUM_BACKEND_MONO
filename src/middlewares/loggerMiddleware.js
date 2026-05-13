@@ -1,43 +1,16 @@
-const winston = require('winston')
-const { createLogger, format, transports } = winston
-const { combine, timestamp, label,  prettyPrint } = format
-require('winston-mongodb')
-require("dotenv").config();
+require("dotenv").config({ override: false });
+const winston = require("winston");
 
+const CATEGORY = "OXIUM service";
 
-const CATEGORY = 'OXIUM service'
-
-let options = {
-  db: process.env.MONGO_URI || 'mongodb://localhost:27017/OXIUM_DB',
-  options: {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  },
-  collection: "errorLogs",
-  capped: false,
-  expireAfterSeconds: 2592000,
-  leaveConnectionOpen: false,
-  storeHost: false,
-  label:`${CATEGORY}`
-  
-}
-
-
-
-const logger = createLogger({
-  level: 'info',
-  format: combine(
-    label({ label: CATEGORY }),
-    timestamp({
-      format: 'MMM-DD-YYYY HH:mm:ss',
-    }),
-    prettyPrint()
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.label({ label: CATEGORY }),
+    winston.format.json()
   ),
-  transports: [new transports.Console(), new transports.MongoDB(options)],
-})
+  transports: [new winston.transports.Console()],
+});
 
-
-
-
-
-module.exports = logger
+module.exports = logger;

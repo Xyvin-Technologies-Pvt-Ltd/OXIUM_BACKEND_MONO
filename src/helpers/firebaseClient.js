@@ -1,29 +1,22 @@
 const { firebase } = require("../config/firebaseInit");
 
-function sendPushNotification(deviceToken, payload) {
+async function sendPushNotification(deviceToken, payload) {
+  if (!firebase) throw new Error("Firebase not configured");
   const message = {
     ...payload,
     token: deviceToken,
   };
-
   return firebase.messaging().send(message);
 }
 
 async function sendPushNotificationToAll(payload) {
+  if (!firebase) throw new Error("Firebase not configured");
   const topic = "general";
-  const message = {
+  return firebase.messaging().send({
+    topic,
     notification: payload,
     data: { startCharge: "false" },
-  };
-  firebase
-    .messaging()
-    .sendToTopic(topic, message)
-    .then((response) => {
-      return response;
-    })
-    .catch((error) => {
-      return error;
-    });
+  });
 }
 
 module.exports = { sendPushNotificationToAll, sendPushNotification };
