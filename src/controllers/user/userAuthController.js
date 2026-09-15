@@ -145,14 +145,14 @@ exports.sendOtp = async (req, res) => {
     );
   }
 
-  if (mobileNo !== "7994461589") {
-    const payload = {
-      phoneNumber: mobileNo,
-      otp: otp,
-    };
-    req.body = payload;
-    await sendSms(req, res, true);
-  }
+  // if (mobileNo !== "7994461589") {
+  //   const payload = {
+  //     phoneNumber: mobileNo,
+  //     otp: otp,
+  //   };
+  //   req.body = payload;
+  //   await sendSms(req, res, true);
+  // }
 
   res.status(200).json({
     status: true,

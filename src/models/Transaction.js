@@ -5,6 +5,7 @@ const transactionSchema = new mongoose.Schema({
   merchantId: { type: Number, required: true },
   appId: { type: String, required: true },
   amount: { type: Number, required: true },
+  amountInPaisa: { type: Number, required: true },
   status: { type: String, enum: ["INITIATED", "SUCCESS", "FAILED"], default: "INITIATED" },
   referenceId: { type: String },
   userId: { type: String },
