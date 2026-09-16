@@ -42,15 +42,17 @@ const imageUploadAlone = (req, res) => {
 
 const createVehicle = async (req, res) => {
   try {
-    const vehicleValidator = vehicleValidationSchema.validate(req.body, {
+    const { error, value } = vehicleValidationSchema.validate(req.body, {
       abortEarly: true,
     });
-
-    if (vehicleValidator.error) {
-      throw new Error(vehicleValidator.error);
+    if (error) {
+      return res.status(400).json({
+        status: false,
+        error: error.details?.[0]?.message || "validation error",
+      });
     }
 
-    let saveData = {
+    const saveData = {
       modelName: value.modelName,
       numberOfPorts: value.numberOfPorts || 1,
       brand: value.brand,
@@ -58,9 +60,7 @@ const createVehicle = async (req, res) => {
       icon: value.icon || "no image",
     };
 
-    const newVehicle = new Vehicle(saveData);
-
-    const savedVehicle = await newVehicle.save();
+    const savedVehicle = await new Vehicle(saveData).save();
     res.status(201).json({
       status: true,
       data: savedVehicle,
@@ -68,7 +68,7 @@ const createVehicle = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       status: false,
-      error: "validation error",
+      error: error.message || "server error",
     });
   }
 };
