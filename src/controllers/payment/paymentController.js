@@ -10,7 +10,8 @@ const {
 } = require("../transaction/transactionController");
 
 exports.createPaymentOrder = async (req, res) => {
-  const { amount, currency, userId, type } = req.body;
+  const { amount, userId, type } = req.body;
+  const currency = req.body.currency || "NPR";
   if (!userId) throw new createError(400, "UserId required for payment order");
 
   const paymentGateway = "Razorpay";

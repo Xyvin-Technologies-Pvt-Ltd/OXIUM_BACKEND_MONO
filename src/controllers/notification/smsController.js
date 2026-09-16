@@ -4,7 +4,7 @@ const { sendTwilioOTP } = require("../../helpers/twilioClient.js");
 // send sms notification
 exports.sendSms = async (req, res, internalCall = false) => {
   let { phoneNumber, otp } = req.body;
-  const countryCode = "+91"; // Country code for India
+  const countryCode = "+977"; // Country code for Nepal
   let result;
   if (phoneNumber.startsWith(countryCode)) {
     const user = {
