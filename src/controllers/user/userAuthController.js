@@ -14,14 +14,14 @@ const { getRfidBySerialNumber } = require("../rfid/rfidController");
 //   const otp = generateOTP(5);
 //   const mobileNo = req.params.mobileNo;
 
-//   const countryCode = "+91"; // Country code for India
+//   const countryCode = "+977"; // Country code for Nepal
 //   const withoutCountryCode = mobileNo.slice(countryCode.length);
 //   let user = await USER.findOne(
 //     { mobile: { $in: [mobileNo, withoutCountryCode] } },
 //     "_id"
 //   );
 //   if (!user) {
-//     //! check if indian user or not
+//     //! check if nepali user or not
 //     if (mobileNo.startsWith(countryCode)) {
 //       user = new USER({
 //         mobile: mobileNo,
@@ -111,7 +111,7 @@ exports.sendOtp = async (req, res) => {
     otp = generateOTP(5);
   }
 
-  const countryCode = "+91"; 
+  const countryCode = "+977"; 
   const withoutCountryCode = mobileNo.slice(countryCode.length);
 
   let user = await USER.findOne(

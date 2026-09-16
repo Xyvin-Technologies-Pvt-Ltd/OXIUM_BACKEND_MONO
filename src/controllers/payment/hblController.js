@@ -40,7 +40,7 @@ class HBLController {
         encryption_key_id: HBL_CONFIG.ENCRYPTION_KEY_ID,
         transaction_ref: transactionRef,
         amount: paymentAmount,
-        currency: 'PKR',
+        currency: 'NPR',
         customer_email: customerEmail,
         customer_phone: customerPhone || '',
         description: description || 'Payment for order',
