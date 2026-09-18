@@ -50,7 +50,7 @@ userRoute.post(
 
 //!user Auth related
 
-userRoute.get(
+userRoute.post(
   "/users/sendOtp/:mobileNo",
   asyncHandler(userAuthController.sendOtp)
 );
