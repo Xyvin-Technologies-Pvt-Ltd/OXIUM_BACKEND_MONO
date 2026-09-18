@@ -1,12 +1,13 @@
 const createError = require("http-errors");
 const ChargingStation = require("../../models/chargingStationSchema");
+const EvMachine = require("../../models/evMachineSchema");
 const { signAccessToken } = require("../../utils/jwt_helper");
 const {
   getChargingStationPipeline,
   getChargingStationListPipeline,
 } = require("./pipes");
 const { getUserByMobileNo } = require("../user/userBasicCRUDControllers");
-const { pushRole } = require("../user/adminController");
+const { pushRole, popRole } = require("../user/adminController");
 const { getAverageRating } = require("../review/reviewController");
 const { getSoC } = require("../../services/ocppServiceApis");
 const findCommonReturnData =
@@ -192,20 +193,33 @@ exports.updateChargingStation = async (req, res) => {
 
 // Delete a chargingStation by ID
 exports.deleteChargingStation = async (req, res) => {
-  const isExist = await ChargingStation.findById(req.params.chargingStationId);
-  await deleteChargers(req.params.chargingStationId);
-  const deletedChargingStation = await ChargingStation.findByIdAndDelete(
-    req.params.chargingStationId
-  );
-  // const deletedChargingStation = true;
-  if (!deletedChargingStation) {
-    res
+  const chargingStationId = req.params.chargingStationId;
+  const existingStation = await ChargingStation.findById(chargingStationId);
+  if (!existingStation) {
+    return res
       .status(404)
       .json({ status: false, message: "Charging Station not found" });
-  } else {
-    await removeLoc(req.role._id, req.params.chargingStationId);
-    res.status(204).end();
   }
+
+  // Remove chargers linked to this station (by location and by chargers array)
+  await EvMachine.deleteMany({
+    $or: [
+      { location_name: chargingStationId },
+      ...(existingStation.chargers?.length
+        ? [{ _id: { $in: existingStation.chargers } }]
+        : []),
+    ],
+  });
+
+  await ChargingStation.findByIdAndDelete(chargingStationId);
+
+  if (req.role?._id) {
+    req.params.id = req.role._id;
+    req.body.location_access = chargingStationId;
+    await popRole(req, res, true);
+  }
+
+  res.status(204).end();
 };
 
 // Get a chargingStation list

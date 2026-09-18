@@ -136,7 +136,7 @@ exports.pushRole = async (req, res, internalCall = false) => {
   }
 };
 
-exports.popRole = async (req, res) => {
+exports.popRole = async (req, res, internalCall = false) => {
   const { id } = req.params;
   const { location_access } = req.body;
 
@@ -148,9 +148,10 @@ exports.popRole = async (req, res) => {
       },
       { new: true }
     );
-
+    if (internalCall === true) return updatedRole;
     res.status(200).json({ success: true, data: updatedRole });
   } catch (error) {
+    if (internalCall === true) throw error;
     res.status(500).json({ success: false, message: error.message });
   }
 };
