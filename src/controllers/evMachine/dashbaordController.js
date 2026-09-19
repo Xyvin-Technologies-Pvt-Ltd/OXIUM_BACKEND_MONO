@@ -127,12 +127,13 @@ exports.getReport2 = async (req, res) => {
 
     result = result.map((transaction) => {
       let chargingTariffRate = "";
-      if (transaction) {
-        let totalAmount =
-          Number(transaction.chargingTariffDetails.serviceAmount) +
-          Number(transaction.chargingTariffDetails.value);
-        chargingTariffRate +=
-          totalAmount + totalAmount * (transaction.tax_percentage / 100);
+      let serviceAmount = "";
+      if (transaction?.chargingTariffDetails) {
+        const value = Number(transaction.chargingTariffDetails.value) || 0;
+        const taxPct = Number(transaction.tax_percentage) || 0;
+        serviceAmount =
+          Number(transaction.chargingTariffDetails.serviceAmount) || 0;
+        chargingTariffRate = value * (1 + taxPct / 100);
       }
 
       return {
@@ -142,6 +143,7 @@ exports.getReport2 = async (req, res) => {
           ? transaction.chargerTypes.join(", ")
           : "",
         chargingTariffRate: chargingTariffRate,
+        serviceAmount: serviceAmount,
       };
     });
 
@@ -162,6 +164,7 @@ exports.getReport2 = async (req, res) => {
         header: "Charging Tariff Rate( / kWh, / min)",
         key: "chargingTariffRate",
       },
+      { header: "Service Amount", key: "serviceAmount" },
       { header: "Charging Tariff Tax", key: "tax_percentage" },
       { header: "Chargepoint Latitude", key: "latitude" },
       { header: "Chargepoint Longitude", key: "longitude" },
