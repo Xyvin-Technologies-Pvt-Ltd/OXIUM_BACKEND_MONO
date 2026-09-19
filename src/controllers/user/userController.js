@@ -27,8 +27,13 @@ exports.getChargingTariffByRfid = async (req, res) => {
       message: "Ok",
       result: {
         _id: user._id,
-        chargingTariffTotal: chargingTariffApiResult.total,
+        value: chargingTariffApiResult.value,
         tax: chargingTariffApiResult.tax,
+        serviceAmount: chargingTariffApiResult.serviceAmount,
+        energyRate: chargingTariffApiResult.energyRate,
+        chargingTariffTotal: chargingTariffApiResult.total,
+        chargingTariff: chargingTariffApiResult.energyRate,
+        total: chargingTariffApiResult.energyRate,
       },
     });
   } else {
@@ -41,6 +46,7 @@ exports.getChargingTariffByRfid = async (req, res) => {
     if (!user) throw new createError(400, "rfid not found");
 
     if (user.chargingTariff) {
+      req.params.id = user.chargingTariff;
       let apiResponse = await getChargingTariffById(req, res, true);
       chargingTariffApiResult = apiResponse;
     }
@@ -50,8 +56,13 @@ exports.getChargingTariffByRfid = async (req, res) => {
       message: "Ok",
       result: {
         _id: user._id,
-        chargingTariffTotal: chargingTariffApiResult.total,
+        value: chargingTariffApiResult.value,
         tax: chargingTariffApiResult.tax,
+        serviceAmount: chargingTariffApiResult.serviceAmount,
+        energyRate: chargingTariffApiResult.energyRate,
+        chargingTariffTotal: chargingTariffApiResult.total,
+        chargingTariff: chargingTariffApiResult.energyRate,
+        total: chargingTariffApiResult.energyRate,
       },
     });
   }

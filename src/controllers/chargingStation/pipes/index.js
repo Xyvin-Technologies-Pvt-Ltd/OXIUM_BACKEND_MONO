@@ -68,16 +68,16 @@ const getChargingStationPipeline = (chargingStationId) => [
           $project: {
             "evMachines.chargingTariff": {
               charger_tariff: {
-                $add: [
-                  { $add: ["$serviceAmount", "$value"] },
+                $multiply: [
+                  "$value",
                   {
-                    $multiply: [
-                      { $add: ["$serviceAmount", "$value"] },
-                      { $divide: ["$taxDetails.percentage", 100] },
-                    ],
+                    $add: [1, { $divide: ["$taxDetails.percentage", 100] }],
                   },
                 ],
               },
+              value: "$value",
+              serviceAmount: "$serviceAmount",
+              tax_percentage: "$taxDetails.percentage",
             },
           },
         },
