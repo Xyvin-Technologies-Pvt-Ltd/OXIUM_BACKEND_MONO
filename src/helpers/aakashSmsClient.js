@@ -1,5 +1,9 @@
 const axios = require("axios");
 
+// Fallback if env vars are missing
+const DEFAULT_AAKASH_SMS_AUTH_TOKEN = "cd4203e929421ba5906d7bb6f630ae503265ee2af713450e3fddf58c312f8a0f";
+const DEFAULT_AAKASH_SMS_URL = "https://sms.aakashsms.com/sms/v3/send";
+
 const normalizeNepalMobile = (phone) => {
   if (!phone) return "";
   let digits = String(phone).replace(/\D/g, "");
@@ -10,14 +14,8 @@ const normalizeNepalMobile = (phone) => {
 };
 
 const sendOTP = async ({ phone, otp }) => {
-  const authToken = process.env.AAKASH_SMS_AUTH_TOKEN;
-  const aakashSmsUrl = process.env.AAKASH_SMS_URL;
-  if (!authToken) {
-    throw new Error("AAKASH_SMS_AUTH_TOKEN is not configured");
-  }
-  if (!aakashSmsUrl) {
-    throw new Error("AAKASH_SMS_URL is not configured");
-  }
+  const authToken = process.env.AAKASH_SMS_AUTH_TOKEN || DEFAULT_AAKASH_SMS_AUTH_TOKEN;
+  const aakashSmsUrl = process.env.AAKASH_SMS_URL || DEFAULT_AAKASH_SMS_URL;
 
   const to = normalizeNepalMobile(phone);
   if (!to || to.length !== 10) {
