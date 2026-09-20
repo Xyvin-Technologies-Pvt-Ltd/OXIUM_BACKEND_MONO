@@ -105,7 +105,7 @@ exports.sendOtp = async (req, res) => {
   let otp;
   const mobileNo = req.params.mobileNo;
 
-  if (mobileNo === "7994461589") {
+  if (mobileNo === "+918138916303") {
     otp = "12345";
   } else {
     otp = generateOTP(5);
