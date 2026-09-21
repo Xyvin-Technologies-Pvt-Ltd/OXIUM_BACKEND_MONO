@@ -33,7 +33,7 @@ const chargingTariffValidationSchema = Joi.object({
 });
 
 const chargingTariffUpdateValidationSchema = Joi.object({
-  name: Joi.string().disallow("Default"),
+  name: Joi.string(),
   tariffType: Joi.string().valid("energy", "time"),
   value: Joi.number(),
   serviceAmount: Joi.number(),
