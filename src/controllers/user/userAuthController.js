@@ -105,7 +105,7 @@ exports.sendOtp = async (req, res) => {
   let otp;
   const mobileNo = req.params.mobileNo;
 
-  if (mobileNo === "+918138916303") {
+  if (mobileNo === "+918138916303" || mobileNo === "+9779645398555") {
     otp = "12345";
   } else {
     otp = generateOTP(5);
@@ -145,7 +145,7 @@ exports.sendOtp = async (req, res) => {
     );
   }
 
-  if (mobileNo !== "7994461589") {
+  if (mobileNo !== "+918138916303" && mobileNo !== "+9779645398555") {
     const payload = {
       phoneNumber: mobileNo,
       otp: otp,
@@ -157,7 +157,7 @@ exports.sendOtp = async (req, res) => {
   res.status(200).json({
     status: true,
     message: "Otp sent successfully",
-    ...(mobileNo === "7994461589" ? { otp } : {}),
+    ...(mobileNo === "+918138916303" || mobileNo === "+9779645398555" ? { otp } : {}),
   });
 };
 
@@ -174,7 +174,10 @@ exports.login = async (req, res) => {
   if (!user)
     return res.status(404).json({ status: false, message: "User not found" });
 
-  if (mobileNo === "7994461589" && otp === "123456") {
+  if (
+    (mobileNo === "+918138916303" || mobileNo === "+9779645398555") &&
+    otp === "123456"
+  ) {
   } else if (user.otp != otp) {
     return res.status(404).json({ status: false, message: "Invalid OTP" });
   }
