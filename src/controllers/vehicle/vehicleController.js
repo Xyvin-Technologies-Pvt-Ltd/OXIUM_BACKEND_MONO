@@ -2,13 +2,14 @@ const mongoose = require("mongoose");
 const Brand = require("../../models/brandSchema");
 const Vehicle = require("../../models/vehicleSchema");
 const { vehicleValidationSchema } = require("../../validation");
+const { v4: uuidv4 } = require("uuid");
 
 const AWS = require("aws-sdk");
 const { getVehiclePipeline, getBrandPipeline } = require("./pipes");
 AWS.config.update({
-  region: process.env.MY_AWS_REGION,
-  accessKeyId: process.env.MY_AWS_ACCESS_KEY,
-  secretAccessKey: process.env.MY_AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
 });
 
 const s3 = new AWS.S3();
@@ -20,10 +21,12 @@ const imageUploadAlone = (req, res) => {
     return res.status(400).json({ error: "No file" });
   }
 
+  const uniqueId = uuidv4();
+
   // Create a stream to S3
   const params = {
-    Bucket: "image-upload-oxium/vehicles",
-    Key: `${uniqueId}-${file.originalname}`,
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: `vehicles/${uniqueId}-${file.originalname}`,
     ContentType: file.mimetype,
     Body: file.buffer,
     // ACL: 'public-read' // or another ACL setting
@@ -42,15 +45,17 @@ const imageUploadAlone = (req, res) => {
 
 const createVehicle = async (req, res) => {
   try {
-    const vehicleValidator = vehicleValidationSchema.validate(req.body, {
+    const { error, value } = vehicleValidationSchema.validate(req.body, {
       abortEarly: true,
     });
-
-    if (vehicleValidator.error) {
-      throw new Error(vehicleValidator.error);
+    if (error) {
+      return res.status(400).json({
+        status: false,
+        error: error.details?.[0]?.message || "validation error",
+      });
     }
 
-    let saveData = {
+    const saveData = {
       modelName: value.modelName,
       numberOfPorts: value.numberOfPorts || 1,
       brand: value.brand,
@@ -58,9 +63,7 @@ const createVehicle = async (req, res) => {
       icon: value.icon || "no image",
     };
 
-    const newVehicle = new Vehicle(saveData);
-
-    const savedVehicle = await newVehicle.save();
+    const savedVehicle = await new Vehicle(saveData).save();
     res.status(201).json({
       status: true,
       data: savedVehicle,
@@ -68,7 +71,7 @@ const createVehicle = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       status: false,
-      error: "validation error",
+      error: error.message || "server error",
     });
   }
 };

@@ -69,6 +69,8 @@ const evMachineSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+evMachineSchema.index({ location_name: 1 })
+
 const EvMachine = mongoose.model('EvMachine', evMachineSchema)
 
 module.exports = EvMachine;

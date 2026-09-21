@@ -22,6 +22,7 @@ const adminRoute = require("./routes/user/adminRoutes.js");
 const userRoute = require("./routes/user/userRoutes.js");
 const connectipsRoute = require("./routes/payment-gateway/connectips.route");
 const hblRoute = require('./routes/payment-gateway/hbl.route.js');
+const reportRoute = require("./routes/reports/reportRoutes.js");
 // const { runAllSeeds } = require("./seeds/index.js");
 const app = express();
 
@@ -68,6 +69,7 @@ app.use(`${BASE_PATH}`, authVerify, evRoute);
 app.use(`${BASE_PATH}`, authVerify, paymentRoute);
 app.use(`${BASE_PATH}`, authVerify, configRoute);
 app.use(`${BASE_PATH}`, authVerify, logRoute);
+app.use(`${BASE_PATH}`, authVerify, reportRoute);
 
 
 

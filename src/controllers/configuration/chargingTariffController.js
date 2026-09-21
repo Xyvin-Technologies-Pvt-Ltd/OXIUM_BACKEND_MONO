@@ -146,11 +146,18 @@ exports.getChargingTariffById = async (req, res, internalCall = false) => {
 
   let taxPercentage = await getTaxPercentage(chargingTariff.tax);
 
-  let total = chargingTariff.serviceAmount + chargingTariff.value;
-  total += total * taxPercentage;
+  const value = Number(chargingTariff.value) || 0;
+  const serviceAmount = Number(chargingTariff.serviceAmount) || 0;
+  const energyRate = Number((value * (1 + taxPercentage)).toFixed(2));
 
-  const result = { tax: taxPercentage, total: Number(total.toFixed(2)) };
-    if (internalCall === true) return result;
+  const result = {
+    value,
+    tax: taxPercentage,
+    serviceAmount,
+    energyRate,
+    total: energyRate,
+  };
+  if (internalCall === true) return result;
 
   res.status(200).json({
     status: true,
@@ -170,10 +177,20 @@ exports.getTotalChargingTariffRate = async (req, res) => {
   }
 
   let taxPercentage = await getTaxPercentage(chargingTariff.tax);
-  let total = chargingTariff.serviceAmount + chargingTariff.value;
-  total += total / taxPercentage;
+  const value = Number(chargingTariff.value) || 0;
+  const serviceAmount = Number(chargingTariff.serviceAmount) || 0;
+  const energyRate = Number((value * (1 + taxPercentage)).toFixed(2));
 
-  res.status(200).json({ status: true, result: Number(total.toFixed(2)) });
+  res.status(200).json({
+    status: true,
+    result: {
+      value,
+      tax: taxPercentage,
+      serviceAmount,
+      energyRate,
+      total: energyRate,
+    },
+  });
 };
 
 // delete chargingTariff by id

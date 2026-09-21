@@ -1,21 +1,26 @@
-const smsClient = require("../../helpers/smsClient.js");
+const aakashSmsClient = require("../../helpers/aakashSmsClient.js");
 const { sendTwilioOTP } = require("../../helpers/twilioClient.js");
 
 // send sms notification
 exports.sendSms = async (req, res, internalCall = false) => {
   let { phoneNumber, otp } = req.body;
-  const countryCode = "+91"; // Country code for India
+  const countryCode = "+977"; // Country code for Nepal
   let result;
-  if (phoneNumber.startsWith(countryCode)) {
-    const user = {
-      phone: phoneNumber.substring(countryCode.length), // Remove countryCode and non-digit characters
-      otp: otp,
-    };
 
-    result = await smsClient.sendOTP(user);
+  // Nepal numbers -> AakashSMS; others -> Twilio
+  if (
+    phoneNumber.startsWith(countryCode) ||
+    phoneNumber.startsWith("977") ||
+    (!phoneNumber.startsWith("+") && String(phoneNumber).replace(/\D/g, "").length === 10)
+  ) {
+    result = await aakashSmsClient.sendOTP({
+      phone: phoneNumber,
+      otp,
+    });
   } else {
     result = await sendTwilioOTP(phoneNumber, otp);
   }
-  if (internalCall === true) return;
+
+  if (internalCall === true) return result;
   res.status(200).json({ status: true, message: "OTP sent successfully" });
 };

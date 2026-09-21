@@ -4,9 +4,23 @@ const { getRfidsPipeline } = require("./pipes");
 const mongoose = require("mongoose");
 const createError = require("http-errors");
 
+// Admin date picker sends YYYY-MM-DD; some clients still send DD-MM-YYYY
+const parseExpiryDate = (expiry) => {
+  if (!expiry) return expiry;
+  const parsed = moment(
+    expiry,
+    ["YYYY-MM-DD", "DD-MM-YYYY", moment.ISO_8601],
+    true
+  );
+  if (!parsed.isValid()) {
+    throw new createError(400, `Invalid expiry date: ${expiry}`);
+  }
+  return parsed.toDate();
+};
+
 const createRfid = async (req, res) => {
   let data = req.body;
-  data.expiry = moment(data.expiry, "DD-MM-YYYY");
+  data.expiry = parseExpiryDate(data.expiry);
   data.status = data.status === "active" ? "unassigned" : "inactive";
   const rfid = new Rfid(data);
   const savedRfid = await rfid.save();
@@ -87,7 +101,7 @@ const updateRfid = async (req, res, internalCall = false) => {
   const { id } = req.params;
   const data = req.body;
   if (data.expiry) {
-    data.expiry = moment(data.expiry, "DD-MM-YYYY");
+    data.expiry = parseExpiryDate(data.expiry);
   }
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throw new createError(400, `Invalid id ${id}`);

@@ -14,14 +14,14 @@ const { getRfidBySerialNumber } = require("../rfid/rfidController");
 //   const otp = generateOTP(5);
 //   const mobileNo = req.params.mobileNo;
 
-//   const countryCode = "+91"; // Country code for India
+//   const countryCode = "+977"; // Country code for Nepal
 //   const withoutCountryCode = mobileNo.slice(countryCode.length);
 //   let user = await USER.findOne(
 //     { mobile: { $in: [mobileNo, withoutCountryCode] } },
 //     "_id"
 //   );
 //   if (!user) {
-//     //! check if indian user or not
+//     //! check if nepali user or not
 //     if (mobileNo.startsWith(countryCode)) {
 //       user = new USER({
 //         mobile: mobileNo,
@@ -105,13 +105,13 @@ exports.sendOtp = async (req, res) => {
   let otp;
   const mobileNo = req.params.mobileNo;
 
-  if (mobileNo === "7994461589") {
+  if (mobileNo === "+918138916303" || mobileNo === "+9779645398555") {
     otp = "12345";
   } else {
     otp = generateOTP(5);
   }
 
-  const countryCode = "+91"; 
+  const countryCode = "+977"; 
   const withoutCountryCode = mobileNo.slice(countryCode.length);
 
   let user = await USER.findOne(
@@ -145,19 +145,19 @@ exports.sendOtp = async (req, res) => {
     );
   }
 
-  // if (mobileNo !== "7994461589") {
-  //   const payload = {
-  //     phoneNumber: mobileNo,
-  //     otp: otp,
-  //   };
-  //   req.body = payload;
-  //   await sendSms(req, res, true);
-  // }
+  if (mobileNo !== "+918138916303" && mobileNo !== "+9779645398555") {
+    const payload = {
+      phoneNumber: mobileNo,
+      otp: otp,
+    };
+    req.body = payload;
+    await sendSms(req, res, true);
+  }
 
   res.status(200).json({
     status: true,
     message: "Otp sent successfully",
-    otp, 
+    ...(mobileNo === "+918138916303" || mobileNo === "+9779645398555" ? { otp } : {}),
   });
 };
 
@@ -174,7 +174,10 @@ exports.login = async (req, res) => {
   if (!user)
     return res.status(404).json({ status: false, message: "User not found" });
 
-  if (mobileNo === "7994461589" && otp === "123456") {
+  if (
+    (mobileNo === "+918138916303" || mobileNo === "+9779645398555") &&
+    otp === "123456"
+  ) {
   } else if (user.otp != otp) {
     return res.status(404).json({ status: false, message: "Invalid OTP" });
   }
