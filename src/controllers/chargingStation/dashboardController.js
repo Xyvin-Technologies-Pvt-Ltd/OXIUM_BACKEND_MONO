@@ -1,7 +1,7 @@
 const AWS = require("aws-sdk");
 AWS.config.update({
   region: process.env.AWS_REGION,
-  accessKeyId: process.env.AWS_ACCESS_KEY,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
 });
 
@@ -200,8 +200,8 @@ exports.imageUpload = async (req, res) => {
 
   // Create a stream to S3
   const params = {
-    Bucket: "image-upload-oxium/charging-station",
-    Key: `${uniqueId}-${file.originalname}`,
+    Bucket: process.env.AWS_S3_BUCKET,
+    Key: `charging-station/${uniqueId}-${file.originalname}`,
     ContentType: file.mimetype,
     Body: file.buffer,
   };
