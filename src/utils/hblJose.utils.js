@@ -87,10 +87,10 @@ const createJosePayload = async (payload, clientIp = '1.0.0.1') => {
       language: "en-US",
     },
     notificationURLs: {
-      confirmationURL: `${process.env.BASE_URL}/api/v1/payment/hbl/success`,
-      failedURL: `${process.env.BASE_URL}/api/v1/payment/hbl/failure`,
-      cancellationURL: `${process.env.BASE_URL}/api/v1/payment/hbl/failure`,
-      backendURL: `${process.env.BASE_URL}/api/v1/payment/hbl/webhook`
+      confirmationURL: config.successUrl,
+      failedURL: config.failUrl,
+      cancellationURL: config.failUrl,
+      backendURL: process.env.HBL_WEBHOOK_URL || `${process.env.BASE_URL}/api/v1/payment/hbl/webhook`
     },
     officeId: config.merchantId,
     orderNo: payload.invoiceNo,
