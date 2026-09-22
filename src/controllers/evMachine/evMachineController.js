@@ -125,6 +125,93 @@ exports.deleteEvMachine = async (req, res) => {
   }
 };
 
+// Get QR code(s) by CPID (optional connectorId)
+exports.getEvMachineQr = async (req, res) => {
+  const { cpid, connectorId } = req.params;
+
+  const evMachine = await EvMachine.findOne({ CPID: cpid }).populate("evModel");
+  if (!evMachine) {
+    return res
+      .status(404)
+      .json({ status: false, error: "EvMachine not found" });
+  }
+
+  const evModel = evMachine.evModel;
+  const buildPayload = (id) => ({
+    cpid: evMachine.CPID,
+    connectorId: id,
+    chargerName: evMachine.CPID,
+    outputType: evModel?.output_type || "",
+    capacity: evModel?.capacity || "",
+    connectorType:
+      evModel?.charger_type && evModel.charger_type[0]
+        ? evModel.charger_type[0]
+        : "",
+  });
+
+  const ensureQr = async (connector) => {
+    if (connector.qrCode) return connector.qrCode;
+    try {
+      const qrCode = await createQRCode(buildPayload(connector.connectorId));
+      connector.qrCode = qrCode;
+      await EvMachine.updateOne(
+        { _id: evMachine._id, "connectors.connectorId": connector.connectorId },
+        { $set: { "connectors.$.qrCode": qrCode } }
+      );
+      return qrCode;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  };
+
+  if (connectorId != null) {
+    const connector = evMachine.connectors.find(
+      (c) => String(c.connectorId) === String(connectorId)
+    );
+    if (!connector) {
+      return res
+        .status(404)
+        .json({ status: false, error: "Connector not found" });
+    }
+
+    const qrCode = await ensureQr(connector);
+    if (!qrCode) {
+      return res
+        .status(500)
+        .json({ status: false, error: "QR code not available" });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: "OK",
+      result: {
+        cpid: evMachine.CPID,
+        connectorId: connector.connectorId,
+        qrCode,
+      },
+    });
+  }
+
+  const connectors = [];
+  for (const connector of evMachine.connectors) {
+    const qrCode = await ensureQr(connector);
+    connectors.push({
+      connectorId: connector.connectorId,
+      qrCode,
+    });
+  }
+
+  return res.status(200).json({
+    status: true,
+    message: "OK",
+    result: {
+      cpid: evMachine.CPID,
+      connectors,
+    },
+  });
+};
+
 // Get a evMachine by CPID
 exports.getEvMachineTariffRate = async (req, res) => {
   const evMachine = await EvMachine.findOne(
