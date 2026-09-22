@@ -58,7 +58,8 @@ exports.createEvMachine = async (req, res) => {
   }
 
   evMachineData.connectors = connectors;
-  evMachineData.configuration_url = `ws://13.203.2.34/ocpp-ws/${evMachineData.CPID}`;
+  const ocppWsBaseUrl = process.env.OCPP_WS_BASE_URL.replace(/\/$/, "");
+  evMachineData.configuration_url = `${ocppWsBaseUrl}/${evMachineData.CPID}`;
   evMachineData.chargingTariff = defaultTariff._id;
 
   const evMachine = new EvMachine(evMachineData);
