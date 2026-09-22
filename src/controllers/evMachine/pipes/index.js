@@ -147,6 +147,7 @@ const getDashboardListPipeline = (filter, locations) => {
         oem: "$evModelDetails.oem",
         authorization_key: 1,
         serial_number: 1,
+        chargepoint_ref_id: 1,
         commissioned_date: 1,
         configuration_url: 1,
         cpidStatus: 1,

@@ -37,6 +37,7 @@ const evMachineSchema = new mongoose.Schema(
     name: String,
     authorization_key: String,
     serial_number: String,
+    chargepoint_ref_id: String,
     commissioned_date: String,
     published: String,
 
