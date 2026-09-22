@@ -4,12 +4,33 @@ const EvMachine = require("../../models/evMachineSchema");
 const USER = require("../../models/userSchema");
 const { getSoC } = require("../../services/ocppServiceApis");
 
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  return Number(d.toFixed(2));
+}
+
 /**
  * 1. Single Optimized Operator API to get all Stations, Chargers & Connectors
  * Endpoint: GET /api/v1/operator/stations
+ * Query / Body Params: ?latitude=...&longitude=...
  */
 exports.getOperatorStations = async (req, res) => {
   try {
+    const userLat = parseFloat(req.query.latitude || req.body?.latitude);
+    const userLon = parseFloat(req.query.longitude || req.body?.longitude);
+    const hasCoords = !isNaN(userLat) && !isNaN(userLon);
+
     const pipeline = [
       {
         $lookup: {
@@ -190,13 +211,24 @@ exports.getOperatorStations = async (req, res) => {
 
       const primaryPower = chargersList[0]?.power || "60 kW DC Fast";
 
+      let distanceKm = null;
+      if (hasCoords && st.latitude != null && st.longitude != null) {
+        distanceKm = getDistanceFromLatLonInKm(
+          userLat,
+          userLon,
+          parseFloat(st.latitude),
+          parseFloat(st.longitude)
+        );
+      }
+
       return {
         _id: st._id,
-        name: st.name || "GOEC Charging Hub",
-        address: st.address || "Kerala Network",
-        location: st.address ? st.address.split(",").slice(-3).join(",").trim() : "GOEC Network",
+        name: st.name || "GOECM Charging Hub",
+        address: st.address || "Nepal Network",
+        location: st.address ? st.address.split(",").slice(-3).join(",").trim() : "GOECM Network",
         latitude: st.latitude,
         longitude: st.longitude,
+        distance: distanceKm,
         status: overallStatus,
         power: primaryPower,
         totalChargers: chargersList.length,
@@ -204,10 +236,20 @@ exports.getOperatorStations = async (req, res) => {
       };
     });
 
+    if (hasCoords) {
+      formattedStations.sort((a, b) => {
+        if (a.distance == null && b.distance == null) return 0;
+        if (a.distance == null) return 1;
+        if (b.distance == null) return -1;
+        return a.distance - b.distance;
+      });
+    }
+
     res.status(200).json({
       status: true,
       message: "Ok",
       totalStations: formattedStations.length,
+      userLocation: hasCoords ? { latitude: userLat, longitude: userLon } : null,
       result: formattedStations,
     });
   } catch (error) {
