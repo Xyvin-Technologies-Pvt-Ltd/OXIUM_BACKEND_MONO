@@ -46,6 +46,7 @@ const chargingStationSchema = new mongoose.Schema(
     vendor: String,
     category: String,
     published:Boolean,
+    station_ref_id: String,
   
     
   },

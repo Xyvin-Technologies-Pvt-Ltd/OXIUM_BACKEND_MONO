@@ -16,6 +16,14 @@ evRoute.get(
   asyncHandler(evMachineController.getEvMachineList)
 );
 evRoute.get(
+  "/evMachine/qr/:cpid/:connectorId",
+  asyncHandler(evMachineController.getEvMachineQr)
+);
+evRoute.get(
+  "/evMachine/qr/:cpid",
+  asyncHandler(evMachineController.getEvMachineQr)
+);
+evRoute.get(
   "/evMachine/:evMachineId",
   asyncHandler(evMachineController.getEvMachineById)
 );
