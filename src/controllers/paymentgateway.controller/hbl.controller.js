@@ -41,12 +41,12 @@ exports.generateHblPaymentPage = async (req, res) => {
     await HBLTransaction.create({
       txnId: txnId,
       merchantId: config.merchantId,
-      appId: process.env.HBL_APP_ID,
+      appId: process.env.HBL_UAT_APP_ID,
       amount: parseFloat(amount),
       currency: 'NPR',
       description: description || `Payment for ${txnId}`,
       invoiceNo: invoiceNo,
-      userDefined1: process.env.HBL_APP_ID,
+      userDefined1: process.env.HBL_UAT_APP_ID,
       status: 'INITIATED',
       userId: userId, // Store custom userId as string
       createdAt: new Date()
@@ -57,7 +57,7 @@ exports.generateHblPaymentPage = async (req, res) => {
       invoiceNo: invoiceNo,
       description: description || `Payment for ${invoiceNo}`,
       currencyCode: 'NPR',
-      appId: process.env.HBL_APP_ID
+      appId: process.env.HBL_UAT_APP_ID
     };
 
     const encryptedPayload = await createJosePayload(hblRequest, clientIp);

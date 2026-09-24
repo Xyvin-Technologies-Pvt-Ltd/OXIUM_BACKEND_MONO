@@ -29,19 +29,19 @@ const loadKeys = async () => {
 
   return {
     merchantSigningPrivateKey: await importPKCS8(
-      formatPemKey(process.env.HBL_MERCHANT_SIGNING_PRIVATE_KEY, 'MERCHANT_SIGNING_PRIVATE_KEY'), 
+      formatPemKey(process.env.HBL_UAT_MERCHANT_SIGNING_PRIVATE_KEY, 'MERCHANT_SIGNING_PRIVATE_KEY'), 
       'PS256'
     ),
     merchantDecryptionPrivateKey: await importPKCS8(
-      formatPemKey(process.env.HBL_MERCHANT_DECRYPTION_PRIVATE_KEY, 'MERCHANT_DECRUPTION_PRIVATE_KEY'),
+      formatPemKey(process.env.HBL_UAT_MERCHANT_DECRYPTION_PRIVATE_KEY, 'MERCHANT_DECRUPTION_PRIVATE_KEY'),
       'RSA-OAEP'
     ),
     pacoEncryptionPublicKey: await importSPKI(
-      formatPemKey(process.env.HBL_PACO_ENCRYPTION_PUBLIC_KEY, 'PACO_ENCRYPTION_PUBLIC_KEY'),
+      formatPemKey(process.env.HBL_UAT_PACO_ENCRYPTION_PUBLIC_KEY, 'PACO_ENCRYPTION_PUBLIC_KEY'),
       'RSA-OAEP'
     ),
     pacoSigningPublicKey: await importSPKI(
-      formatPemKey(process.env.HBL_PACO_SIGNING_PUBLIC_KEY, 'PACO_SIGNING_PUBLIC_KEY'),
+      formatPemKey(process.env.HBL_UAT_PACO_SIGNING_PUBLIC_KEY, 'PACO_SIGNING_PUBLIC_KEY'),
       'PS256'
     )
   };
@@ -56,8 +56,8 @@ const initializeKeys = async () => {
 const getHblConfig = () => ({
   baseUrl: process.env.HBL_UAT_BASE_URL,
   keyId: process.env.HBL_UAT_KEY_ID,
-  apiKey: process.env.HBL_API_KEY,
-  merchantId: process.env.HBL_MERCHANT_ID,
+  apiKey: process.env.HBL_UAT_API_KEY,
+  merchantId: process.env.HBL_UAT_MERCHANT_ID,
   successUrl: process.env.HBL_SUCCESS_URL,
   failUrl: process.env.HBL_FAILURE_URL
 });
