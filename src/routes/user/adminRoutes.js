@@ -2,6 +2,8 @@ const adminRoute = require("express").Router();
 const adminController = require("../../controllers/user/adminController");
 const authVerify = require("../../middlewares/authVerify");
 const asyncHandler = require("../../utils/asyncHandler");
+const stationUserController = require("../../controllers/user/stationUserController");
+const { requirePermission } = require("../../middlewares/requirePermission");
 
 // Create a new admins and roles
 adminRoute.post("/admin-signin", asyncHandler(adminController.adminSignIn));
@@ -59,6 +61,44 @@ adminRoute.delete(
   "/admin/:id",
   authVerify,
   asyncHandler(adminController.deleteAdmin)
+);
+
+//station portal users
+adminRoute.get(
+  "/station-users",
+  authVerify,
+  requirePermission("adminManagement_view"),
+  asyncHandler(stationUserController.listStationUsers)
+);
+adminRoute.get(
+  "/station-users/station/:stationId",
+  authVerify,
+  requirePermission("adminManagement_view"),
+  asyncHandler(stationUserController.getStationUserByStation)
+);
+adminRoute.post(
+  "/station-users",
+  authVerify,
+  requirePermission("adminManagement_modify"),
+  asyncHandler(stationUserController.createStationUser)
+);
+adminRoute.put(
+  "/station-users/:id",
+  authVerify,
+  requirePermission("adminManagement_modify"),
+  asyncHandler(stationUserController.updateStationUser)
+);
+adminRoute.post(
+  "/station-users/:id/reset-password",
+  authVerify,
+  requirePermission("adminManagement_modify"),
+  asyncHandler(stationUserController.resetStationUserPassword)
+);
+adminRoute.delete(
+  "/station-users/:id",
+  authVerify,
+  requirePermission("adminManagement_modify"),
+  asyncHandler(stationUserController.deleteStationUser)
 );
 
 adminRoute.get("/userList", authVerify, asyncHandler(adminController.userList));

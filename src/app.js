@@ -24,13 +24,23 @@ const connectipsRoute = require("./routes/payment-gateway/connectips.route");
 const hblRoute = require('./routes/payment-gateway/hbl.route.js');
 const reportRoute = require("./routes/reports/reportRoutes.js");
 const operatorRoute = require("./routes/operator/operatorRoutes.js");
+const portalRoute = require("./routes/portal/portalRoutes.js");
 // const { runAllSeeds } = require("./seeds/index.js");
 const app = express();
 
+// CORS_ORIGIN may list several origins separated by commas (CMS + station portal).
+// A single value, including "*", is passed through unchanged.
+const corsOrigin =
+  process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes(",")
+    ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
+    : process.env.CORS_ORIGIN;
+
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: corsOrigin,
     credentials: true,
+    // Lets the portal read the export file name
+    exposedHeaders: ["Content-Disposition"],
   })
 );
 app.use(volleyball);
@@ -56,6 +66,9 @@ app.get(BASE_PATH, (req, res) =>
 // runAllSeeds();
 
 app.use(`${BASE_PATH}/admin`, adminRoute);
+// Must stay above the `${BASE_PATH}` + authVerify mounts: those run CMS auth on every
+// request under BASE_PATH that reaches them, which would reject portal tokens.
+app.use(`${BASE_PATH}/portal`, portalRoute);
 app.use(`${BASE_PATH}`, connectipsRoute);
 app.use(`${BASE_PATH}`, hblRoute);
 app.use(`${BASE_PATH}`, userRoute);

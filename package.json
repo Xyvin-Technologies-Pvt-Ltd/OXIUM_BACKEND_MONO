@@ -8,7 +8,8 @@
     "start": "nodemon handler.js",
     "seed": "node src/seeds/index.js",
     "seed:admin": "node src/seeds/adminSeed.js",
-    "verify:admin": "node src/seeds/verifyAdmin.js"
+    "verify:admin": "node src/seeds/verifyAdmin.js",
+    "backfill:session-stations": "node src/scripts/backfillSessionStations.js"
   },
   "author": "",
   "license": "ISC",
@@ -21,6 +22,7 @@
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "firebase-admin": "^12.1.1",
     "http-errors": "^2.0.0",
