@@ -28,21 +28,49 @@ const portalRoute = require("./routes/portal/portalRoutes.js");
 // const { runAllSeeds } = require("./seeds/index.js");
 const app = express();
 
-// CORS_ORIGIN may list several origins separated by commas (CMS + station portal).
-// A single value, including "*", is passed through unchanged.
-const corsOrigin =
-  process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes(",")
-    ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean)
-    : process.env.CORS_ORIGIN;
+// Define the API version based on environment variable
+const { API_VERSION } = process.env || "v1";
+// Set the base path for API routes
+const BASE_PATH = `/api/${API_VERSION}`;
+const PORTAL_PATH = `${BASE_PATH}/portal`;
 
-app.use(
-  cors({
-    origin: corsOrigin,
-    credentials: true,
-    // Lets the portal read the export file name
-    exposedHeaders: ["Content-Disposition"],
-  })
-);
+const splitOrigins = (value) =>
+  (value || "").split(",").map((origin) => origin.trim()).filter(Boolean);
+
+// Everything except the station portal: CORS_ORIGIN as before. It may list several
+// origins separated by commas; a single value, including "*", is passed through unchanged.
+const defaultCors = {
+  origin:
+    process.env.CORS_ORIGIN && process.env.CORS_ORIGIN.includes(",")
+      ? splitOrigins(process.env.CORS_ORIGIN)
+      : process.env.CORS_ORIGIN,
+  credentials: true,
+};
+
+// Station portal: its requests carry the refresh cookie, and browsers reject "*" for
+// credentialed requests, so the exact portal origin(s) are required. Falls back to the
+// origin of PORTAL_URL; "*" is never allowed here.
+const originOf = (url) => {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return "";
+  }
+};
+const portalOrigins = splitOrigins(
+  process.env.PORTAL_CORS_ORIGIN || (process.env.PORTAL_URL && originOf(process.env.PORTAL_URL))
+).filter((origin) => origin !== "*");
+if (!portalOrigins.length) {
+  console.warn("PORTAL_CORS_ORIGIN (or PORTAL_URL) is not set: browsers will block the station portal");
+}
+const portalCors = {
+  origin: portalOrigins.length ? portalOrigins : false,
+  credentials: true,
+  // Lets the portal read the export file name
+  exposedHeaders: ["Content-Disposition"],
+};
+
+app.use(cors((req, callback) => callback(null, req.path.startsWith(PORTAL_PATH) ? portalCors : defaultCors)));
 app.use(volleyball);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -54,11 +82,6 @@ app.get("/api/health-check", (req, res) => {
 });
 
 app.use(logger("dev"));
-
-// Define the API version based on environment variable
-const { API_VERSION } = process.env || "v1";
-// Set the base path for API routes
-const BASE_PATH = `/api/${API_VERSION}`;
 
 app.get(BASE_PATH, (req, res) =>
   res.status(200).send(" All endpoints are 🔐. Do you have the 🔑")
