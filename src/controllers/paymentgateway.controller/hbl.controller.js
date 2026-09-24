@@ -41,12 +41,10 @@ exports.generateHblPaymentPage = async (req, res) => {
     await HBLTransaction.create({
       txnId: txnId,
       merchantId: config.merchantId,
-      appId: process.env.HBL_UAT_APP_ID,
       amount: parseFloat(amount),
       currency: 'NPR',
       description: description || `Payment for ${txnId}`,
       invoiceNo: invoiceNo,
-      userDefined1: process.env.HBL_UAT_APP_ID,
       status: 'INITIATED',
       userId: userId, // Store custom userId as string
       createdAt: new Date()
@@ -56,8 +54,7 @@ exports.generateHblPaymentPage = async (req, res) => {
       amount: parseFloat(amount),
       invoiceNo: invoiceNo,
       description: description || `Payment for ${invoiceNo}`,
-      currencyCode: 'NPR',
-      appId: process.env.HBL_UAT_APP_ID
+      currencyCode: 'NPR'
     };
 
     const encryptedPayload = await createJosePayload(hblRequest, clientIp);
@@ -124,7 +121,6 @@ exports.hblPaymentSuccess = async (req, res) => {
       {
         status: "SUCCESS",
         gatewayReference: controllerInternalId,
-        referenceId: controllerInternalId,
         paymentMethod: "HBL",
         completedAt: new Date(),
         updatedAt: new Date(),
@@ -241,7 +237,6 @@ exports.hblWebhook = async (req, res) => {
 
       if (respCode === '0000' || respCode === '2000') {
         updateData.status = 'SUCCESS';
-        updateData.referenceId = txnReference;
 
         // Wallet update in webhook
         const hblTransaction = await HBLTransaction.findOne({ txnId: transactionId });
