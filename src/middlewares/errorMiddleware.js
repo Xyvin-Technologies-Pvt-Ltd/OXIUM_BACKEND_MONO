@@ -15,7 +15,10 @@ const errorHandler = (err, req, res, next) => {
   if (err instanceof createError.InternalServerError) {
     res.status(500).json({ error: 'Internal Server Error' })
   } else {
-    res.status(err.status || 500).json({ error: err.message })
+    // String codes are set deliberately via http-errors (e.g. PASSWORD_CHANGE_REQUIRED);
+    // numeric driver codes (Mongo 11000 etc.) are not passed through.
+    const code = err.expose && typeof err.code === 'string' ? { code: err.code } : {}
+    res.status(err.status || 500).json({ error: err.message, ...code })
   }
 }
 

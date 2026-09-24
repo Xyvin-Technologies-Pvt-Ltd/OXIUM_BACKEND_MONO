@@ -21,12 +21,17 @@ const ocppTransactionViewSchema = new mongoose.Schema(
     tax: { type: String },
     transaction_status: { type: String },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'users' },
+    // Set by the OCPP server at StartTransaction (older sessions: see
+    // scripts/backfillSessionStations.js). Missing/null => fall back to cpid.
+    stationId: { type: mongoose.Schema.Types.ObjectId, ref: 'ChargingStation' },
+    chargerId: { type: mongoose.Schema.Types.ObjectId, ref: 'EvMachine' },
   },
   { timestamps: true }
 );
 
 ocppTransactionViewSchema.index({ transaction_status: 1, startTime: -1 });
 ocppTransactionViewSchema.index({ cpid: 1, startTime: -1 });
+ocppTransactionViewSchema.index({ stationId: 1, startTime: -1 });
 
 const OcppTransactionView = mongoose.model(
   'OcppTransactionView',
