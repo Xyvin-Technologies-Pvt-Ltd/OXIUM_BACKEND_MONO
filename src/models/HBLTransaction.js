@@ -10,10 +10,6 @@ const hblTransactionSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  appId: { 
-    type: String, 
-    required: true 
-  },
   amount: { 
     type: Number, 
     required: true 
@@ -24,15 +20,11 @@ const hblTransactionSchema = new mongoose.Schema({
     default: "INITIATED" 
   },
   gatewayReference: { type: String },
-  referenceId: { type: String },
   currency: { type: String, default: "NPR" },
   description: { type: String },
   paymentMethod: { type: String },
   errorMessage: { type: String },
   invoiceNo: { type: String },
-  userDefined1: { type: String },
-  userDefined2: { type: String },
-  userDefined3: { type: String },
   userId: { type: String, required: true },
   completedAt: { type: Date }
 }, {
@@ -44,6 +36,5 @@ hblTransactionSchema.index({ txnId: 1 });
 hblTransactionSchema.index({ gatewayReference: 1 });
 hblTransactionSchema.index({ status: 1 });
 hblTransactionSchema.index({ createdAt: 1 });
-hblTransactionSchema.index({ appId: 1 });
 
 module.exports = mongoose.model("HBLTransaction", hblTransactionSchema);
