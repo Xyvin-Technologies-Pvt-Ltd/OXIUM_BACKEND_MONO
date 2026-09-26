@@ -171,6 +171,11 @@ const portalTransactionsQuerySchema = Joi.object({
   sortOrder: Joi.string().valid("asc", "desc").default("desc"),
 });
 
+const portalUptimeQuerySchema = Joi.object({
+  ...portalDateRange,
+  ...portalChargerFilter,
+});
+
 // Same filters as the on-screen report plus the file format
 const withPortalExportFormat = (schema) =>
   schema.keys({ format: Joi.string().valid("xlsx", "csv").default("xlsx") });
@@ -180,6 +185,7 @@ module.exports = {
   portalChargingSummaryQuerySchema,
   portalFinanceQuerySchema,
   portalTransactionsQuerySchema,
+  portalUptimeQuerySchema,
   withPortalExportFormat,
   vehicleValidationSchema,
   reviewEditSchema,
