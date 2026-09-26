@@ -5,6 +5,8 @@ const User = require("../../models/userSchema");
 const OcppTransactionView = require("../../models/ocppTransactionView");
 const { logPortalEvent } = require("../../helpers/portalAudit");
 const { sendReportFile } = require("../../helpers/portalExport");
+const { carbonFactors, carbonForEnergy } = require("../../utils/carbon");
+const { getStationUptime } = require("../../services/uptimeService");
 const {
   getOverviewPipeline,
   getChargingSummaryPipeline,
@@ -17,6 +19,7 @@ const {
   portalChargingSummaryQuerySchema,
   portalFinanceQuerySchema,
   portalTransactionsQuerySchema,
+  portalUptimeQuerySchema,
   withPortalExportFormat,
 } = require("../../validation");
 
@@ -142,6 +145,7 @@ const formatUsage = (g = {}) => {
     avgDurationSeconds: sessions ? whole(g.durationSeconds / sessions) : 0,
     avgEnergyKwh: sessions ? kwh(g.energyKwh / sessions) : 0,
     customers: countCustomers(g.customers),
+    ...carbonForEnergy(g.energyKwh),
   };
 };
 
@@ -177,6 +181,7 @@ function formatTransaction(row, scope) {
     durationSeconds: whole(row.durationSeconds),
     duration: formatDuration(row.durationSeconds),
     energyKwh: kwh(row.energyKwh),
+    co2AvoidedKg: carbonForEnergy(row.energyKwh).co2AvoidedKg,
     unbilledKwh: kwh(row.unbilledKwh),
     tariffRate: money(row.tariffRate),
     taxPercent: money(row.taxRate * 100),
@@ -248,7 +253,24 @@ async function transactionParams(req, query) {
   };
 }
 
+// Uptime of the station's current chargers (see services/uptimeService.js)
+async function getUptimeData(req, query, options) {
+  const range = resolveDateRange(query.startDate, query.endDate);
+  let chargers = await EvMachine.find({ location_name: req.stationId }, "name CPID cpidStatus location_name").lean();
+  if (query.cpid) {
+    chargers = chargers.filter((charger) => charger.CPID === query.cpid);
+    if (!chargers.length) throw createError(400, "Unknown charger for this station");
+  }
+  return { range, chargers, uptime: await getStationUptime(chargers, range, options) };
+}
+
 //! ---------- JSON endpoints
+
+exports.getUptime = async (req, res) => {
+  const query = parseQuery(portalUptimeQuerySchema, req.query);
+  const { uptime } = await getUptimeData(req, query);
+  res.status(200).json({ success: true, data: uptime });
+};
 
 exports.getOverview = async (req, res) => {
   const query = parseQuery(portalOverviewQuerySchema, req.query);
@@ -272,7 +294,13 @@ exports.getOverview = async (req, res) => {
   const daily = Array.from({ length: range.days }, (_, i) => {
     const day = isoDay(range.startMs + i * DAY_MS);
     const d = dailyByDay.get(day) || {};
-    return { date: day, sessions: d.sessions || 0, energyKwh: kwh(d.energyKwh), revenue: money(d.gross) };
+    return {
+      date: day,
+      sessions: d.sessions || 0,
+      energyKwh: kwh(d.energyKwh),
+      revenue: money(d.gross),
+      co2AvoidedKg: carbonForEnergy(d.energyKwh).co2AvoidedKg,
+    };
   });
 
   const usageByCharger = new Map((current.byCharger || []).map((c) => [c._id, c]));
@@ -299,6 +327,8 @@ exports.getOverview = async (req, res) => {
         serviceFees: money(totals.serviceFees),
       },
       previous: formatUsage(previousTotals),
+      // CO2 figures are estimates from these factors (configurable in .env)
+      carbonFactors: carbonFactors(),
       daily,
       byCharger,
       byMode: (current.byMode || []).map((m) => ({
@@ -375,6 +405,7 @@ const summaryColumns = (groupBy) => [
   { header: "Total duration", key: "duration", width: 14 },
   { header: "Avg duration", key: "avgDuration", width: 13 },
   { header: "Avg energy/session (kWh)", key: "avgEnergyKwh", width: 22, numFmt: KWH },
+  { header: "CO2 avoided (kg, est.)", key: "co2AvoidedKg", width: 20, numFmt: MONEY },
 ];
 
 const financeColumns = (groupBy) => [
@@ -409,6 +440,7 @@ const transactionColumns = [
   { header: "RFID tag", key: "rfidTag", width: 14 },
   { header: "Duration", key: "duration", width: 10 },
   { header: "Energy (kWh)", key: "energyKwh", numFmt: KWH },
+  { header: "CO2 avoided (kg, est.)", key: "co2AvoidedKg", width: 20, numFmt: MONEY },
   { header: "Energy not billed (kWh)", key: "unbilledKwh", width: 21, numFmt: KWH },
   { header: "Tariff incl. tax (NPR/kWh)", key: "tariffRate", width: 22, numFmt: MONEY },
   { header: "Tax %", key: "taxPercent", width: 8 },
@@ -430,6 +462,32 @@ const flattenTransaction = (t) => ({
   customerName: t.customer.name,
   customerMobile: t.customer.mobile,
   customerEmail: t.customer.email,
+});
+
+const hours = (seconds) => Math.round(((seconds || 0) / 3600) * 100) / 100;
+
+const uptimeColumns = [
+  { header: "Date", key: "date", width: 12 },
+  { header: "Charger", key: "chargerName", width: 20 },
+  { header: "CPID", key: "cpid", width: 16 },
+  { header: "Uptime %", key: "uptimePct", width: 11, numFmt: MONEY },
+  { header: "Availability %", key: "availabilityPct", width: 14, numFmt: MONEY },
+  { header: "Online (h)", key: "onlineHours", width: 11, numFmt: MONEY },
+  { header: "Offline (h)", key: "offlineHours", width: 11, numFmt: MONEY },
+  { header: "Fault time (h)", key: "faultHours", width: 13, numFmt: MONEY },
+  { header: "Offline incidents", key: "offlineIncidents", width: 16 },
+  { header: "Fault incidents", key: "faultIncidents", width: 14 },
+  { header: "Hours with data", key: "coveredHours", width: 15, numFmt: MONEY },
+  { header: "Note", key: "note", width: 16 },
+];
+
+const uptimeRow = (r) => ({
+  ...r,
+  onlineHours: hours(r.onlineSeconds),
+  offlineHours: hours(r.offlineSeconds),
+  faultHours: hours(r.faultSeconds),
+  coveredHours: hours(r.coveredSeconds),
+  note: r.live ? "Live (today so far)" : "",
 });
 
 const withDurations = (r) => ({
@@ -488,6 +546,23 @@ const EXPORT_TYPES = {
         for await (const row of cursor) yield flattenTransaction(formatTransaction(row, scope));
       }
       return { columns: transactionColumns, rows: rows(), extraMeta: [["Sessions", count]] };
+    },
+  },
+  uptime: {
+    title: "Charger Uptime",
+    schema: portalUptimeQuerySchema,
+    build: async (req, query) => {
+      const { chargers, uptime } = await getUptimeData(req, query, { perChargerDay: true });
+      const names = new Map(chargers.map((c) => [c.CPID, c.name || ""]));
+      return {
+        columns: uptimeColumns,
+        rows: uptime.chargerDays.map((r) => uptimeRow({ ...r, chargerName: names.get(r.cpid) })),
+        totals: uptimeRow({ ...uptime.totals, date: "Total" }),
+        extraMeta: [
+          ["Offline", `No contact from the charger for more than ${uptime.offlineAfterSeconds / 60} minutes`],
+          ["Availability", "Online and no connector Faulted/Unavailable"],
+        ],
+      };
     },
   },
 };
