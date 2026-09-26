@@ -22,6 +22,7 @@ portalRoute.get("/overview", reportAuth, asyncHandler(portalReportController.get
 portalRoute.get("/reports/charging-summary", reportAuth, asyncHandler(portalReportController.getChargingSummary));
 portalRoute.get("/reports/transactions", reportAuth, asyncHandler(portalReportController.getTransactions));
 portalRoute.get("/reports/finance", reportAuth, asyncHandler(portalReportController.getFinance));
+portalRoute.get("/reports/uptime", reportAuth, asyncHandler(portalReportController.getUptime));
 portalRoute.get("/reports/:type/export", reportAuth, asyncHandler(portalReportController.exportReport));
 
 // Keep unknown portal paths here instead of falling through to the CMS routers
